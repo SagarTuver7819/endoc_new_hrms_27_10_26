@@ -1,0 +1,407 @@
+<?php
+/**
+ * Common Header
+ * Used on authenticated pages (dashboard etc.)
+ */
+require_once __DIR__ . '/../config/app.php';
+require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/settings.php';
+requireLogin();
+
+$companyName = getCompanyName();
+$companyLogo = getDashboardLogo();
+$loginLogo = getLoginLogo();
+// Prefer full brand mark (login logo) in header when available
+if (isCustomLogo($loginLogo)) {
+    $companyLogo = $loginLogo;
+}
+// Logo path may be relative - prefix with APP_BASE if needed
+$logoSrc = $companyLogo;
+if ($logoSrc && strpos($logoSrc, 'http') !== 0 && strpos($logoSrc, '/') !== 0) {
+    $logoSrc = app_url($logoSrc);
+}
+
+$headerNotifyItems = [];
+$headerNotifyUnread = 0;
+$headerEmpPhotoUrl = '';
+$headerEmpProfileUrl = '';
+$headerSessionEmpId = (int) ($_SESSION['employee_id'] ?? 0);
+if ($headerSessionEmpId > 0) {
+    if (!function_exists('getEmployeeById')) {
+        require_once __DIR__ . '/employee_helper.php';
+    }
+    $headerEmpRow = getEmployeeById($headerSessionEmpId);
+    if ($headerEmpRow) {
+        $headerEmpPhotoUrl = employeeDocumentPublicUrl($headerEmpRow['photo_file'] ?? '');
+        $headerEmpProfileUrl = app_url('employees/view.php?id=' . $headerSessionEmpId);
+    }
+}
+if (function_exists('isPortalUser') && isPortalUser()) {
+    $uid = (int) ($_SESSION['user_id'] ?? 0);
+    require_once __DIR__ . '/circular_helper.php';
+    require_once __DIR__ . '/policy_helper.php';
+    require_once __DIR__ . '/leave_helper.php';
+    require_once __DIR__ . '/employee_voice_helper.php';
+    if (function_exists('ensureCircularTables')) {
+        ensureCircularTables();
+        foreach (fetchUnreadCircularNotifications($uid, 8) as $n) {
+            $n['_type'] = 'circular';
+            $n['_date'] = $n['circular_date'] ?? '';
+            $n['_dept_label'] = circularDepartmentsLabel($n);
+            $n['_url'] = app_url('circulars/mark_read.php?id=' . (int) $n['id'] . '&go=view');
+            $n['_icon'] = 'fa-file-circle-plus';
+            $n['_label'] = 'Circular';
+            $headerNotifyItems[] = $n;
+        }
+    }
+    if (function_exists('ensurePolicyTables')) {
+        ensurePolicyTables();
+        foreach (fetchUnreadPolicyNotifications($uid, 8) as $n) {
+            $n['_type'] = 'policy';
+            $n['_date'] = $n['policy_date'] ?? '';
+            $n['_dept_label'] = policyDepartmentsLabel($n);
+            $n['_url'] = app_url('policies/mark_read.php?id=' . (int) $n['id'] . '&go=view');
+            $n['_icon'] = 'fa-scroll';
+            $n['_label'] = 'Policy';
+            $headerNotifyItems[] = $n;
+        }
+    }
+    if (function_exists('ensureLeaveTables')) {
+        ensureLeaveTables();
+        foreach (fetchUnreadLeaveNotifications($uid, 8) as $n) {
+            $event = (string) ($n['event_type'] ?? '');
+            $n['_type'] = 'leave';
+            $n['_date'] = $n['notify_date'] ?? substr((string) ($n['created_at'] ?? ''), 0, 10);
+            $n['_dept_label'] = (string) ($n['body'] ?? '');
+            $n['_url'] = app_url('leave/mark_read.php?id=' . (int) $n['id']);
+            if ($event === 'Approved') {
+                $n['_icon'] = 'fa-circle-check';
+            } elseif ($event === 'Rejected') {
+                $n['_icon'] = 'fa-circle-xmark';
+            } elseif ($event === 'Applied') {
+                $n['_icon'] = 'fa-calendar-plus';
+            } else {
+                $n['_icon'] = 'fa-ban';
+            }
+            $n['_label'] = 'Leave · ' . ($event !== '' ? $event : 'Update');
+            $headerNotifyItems[] = $n;
+        }
+    }
+    if (function_exists('ensureEmployeeVoiceTables')) {
+        ensureEmployeeVoiceTables();
+        foreach (fetchUnreadEvNotifications($uid, 8) as $n) {
+            $event = (string) ($n['event_type'] ?? '');
+            $n['_type'] = 'employee_voice';
+            $n['_date'] = $n['notify_date'] ?? substr((string) ($n['created_at'] ?? ''), 0, 10);
+            $n['_dept_label'] = (string) ($n['body'] ?? '');
+            $n['_url'] = app_url('employee_voice/mark_read.php?id=' . (int) $n['id']);
+            if (strcasecmp($event, 'New') === 0) {
+                $n['_icon'] = 'fa-inbox';
+                $n['_label'] = 'Employee Voice · New';
+            } elseif (strcasecmp($event, 'Reply') === 0) {
+                $n['_icon'] = 'fa-reply';
+                $n['_label'] = 'Employee Voice · Reply';
+            } elseif (strcasecmp($event, 'Status') === 0) {
+                $n['_icon'] = 'fa-arrows-rotate';
+                $n['_label'] = 'Employee Voice · Status';
+            } else {
+                $n['_icon'] = 'fa-comments';
+                $n['_label'] = 'Employee Voice';
+            }
+            // Header expects `title` field (already on row)
+            $headerNotifyItems[] = $n;
+        }
+    }
+    if (isAdmin() || isHR()) {
+        require_once __DIR__ . '/employee_documents_helper.php';
+        ensureEmployeeRelatedDocumentsTables();
+        foreach (fetchUnreadEmployeeDocumentNotifications($uid, 8) as $n) {
+            $n['_type'] = 'employee_document';
+            $n['_date'] = $n['notify_date'] ?? substr((string) ($n['created_at'] ?? ''), 0, 10);
+            $n['_dept_label'] = (string) ($n['body'] ?? '');
+            $n['_url'] = app_url('employees/documents_mark_read.php?id=' . (int) $n['id']);
+            $n['_icon'] = 'fa-folder-open';
+            $n['_label'] = 'Document · ' . employeeRelatedDocLabel($n['doc_type'] ?? '');
+            if (empty($n['title'])) {
+                $n['title'] = 'Document uploaded';
+            }
+            $headerNotifyItems[] = $n;
+        }
+    }
+    require_once __DIR__ . '/payroll_approval_helper.php';
+    foreach (fetchUnreadPayrollNotifications($uid, 8) as $n) {
+        $event = (string) ($n['event_type'] ?? '');
+        $n['_type'] = 'payroll';
+        $n['_date'] = substr((string) ($n['created_at'] ?? ''), 0, 10);
+        $n['_dept_label'] = (string) ($n['body'] ?? '');
+        $n['_url'] = app_url('payroll/notify_read.php?id=' . (int) $n['id']);
+        $n['_icon'] = $event === 'approved' ? 'fa-circle-check' : ($event === 'sent_back' ? 'fa-rotate-left' : 'fa-file-invoice-dollar');
+        $n['_label'] = 'Payroll';
+        $headerNotifyItems[] = $n;
+    }
+    usort($headerNotifyItems, static function ($a, $b) {
+        return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+    });
+    $headerNotifyItems = array_slice($headerNotifyItems, 0, 12);
+    $headerNotifyUnread = count($headerNotifyItems);
+}
+
+// Leave-apply toaster payload for Admin / HR / HR Head / Dept Head (once per session via JS)
+$staffLeaveApplyToasts = [];
+$showStaffLeaveToast = false;
+if (function_exists('isAdmin') && (isAdmin() || isHR())) {
+    $showStaffLeaveToast = true;
+} else {
+    if (!function_exists('isHrHeadRole')) {
+        require_once __DIR__ . '/department_head_helper.php';
+    }
+    if (isHrHeadRole() || isDeptHeadRole()) {
+        $showStaffLeaveToast = true;
+    }
+}
+if ($showStaffLeaveToast && function_exists('isPortalUser') && isPortalUser()) {
+    if (!function_exists('fetchUnreadLeaveAppliedNotifications')) {
+        require_once __DIR__ . '/leave_helper.php';
+    }
+    $toastUid = (int) ($_SESSION['user_id'] ?? 0);
+    foreach (fetchUnreadLeaveAppliedNotifications($toastUid, 5) as $ln) {
+        $empCode = trim((string) ($ln['employee_code'] ?? ''));
+        $empName = trim((string) ($ln['employee_name'] ?? ''));
+        $who = trim(($empCode !== '' ? $empCode . ' · ' : '') . $empName);
+        $leaveCode = trim((string) ($ln['leave_code'] ?? ''));
+        $leaveName = trim((string) ($ln['leave_type_name'] ?? ''));
+        $typeLabel = $leaveCode !== '' ? $leaveCode : ($leaveName !== '' ? $leaveName : 'Leave');
+        $from = (string) ($ln['from_date'] ?? '');
+        $to = (string) ($ln['to_date'] ?? '');
+        $fromShow = function_exists('formatDateDisplay') ? formatDateDisplay($from) : $from;
+        $toShow = function_exists('formatDateDisplay') ? formatDateDisplay($to) : $to;
+        $days = (float) ($ln['days'] ?? 0);
+        $daysLabel = rtrim(rtrim(number_format($days, 2, '.', ''), '0'), '.');
+        $datePart = ($from === $to || $to === '' || $toShow === '')
+            ? $fromShow
+            : ($fromShow . ' – ' . $toShow);
+        $dept = trim((string) ($ln['department_name'] ?? ''));
+        $staffLeaveApplyToasts[] = [
+            'id' => (int) ($ln['id'] ?? 0),
+            'title' => 'New Leave Application',
+            'employee' => $who !== '' ? $who : 'Employee',
+            'type' => $typeLabel,
+            'dates' => $datePart,
+            'days' => $daysLabel . ' day(s)',
+            'department' => $dept,
+            'url' => app_url('leave/mark_read.php?id=' . (int) ($ln['id'] ?? 0)),
+        ];
+    }
+}
+if (!empty($staffLeaveApplyToasts)) {
+    if (!isset($extraCss) || !is_array($extraCss)) {
+        $extraCss = [];
+    }
+    $extraCss[] = 'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css';
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?><?php echo htmlspecialchars($companyName); ?> HRMS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?php echo app_url('assets/css/style.css'); ?>?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/style.css'); ?>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <?php if (!empty($extraCss) && is_array($extraCss)): ?>
+        <?php foreach ($extraCss as $css): ?>
+            <link rel="stylesheet" href="<?php echo htmlspecialchars((strpos($css, 'http') === 0) ? $css : app_url($css)); ?>">
+        <?php endforeach; ?>
+    <?php endif; ?>
+</head>
+<body<?php echo !empty($useSidebar) ? ' class="has-app-sidebar"' : ''; ?>>
+<?php if (!empty($useSidebar)): ?>
+    <div class="app-shell" id="appShell">
+        <?php require_once __DIR__ . '/sidebar.php'; ?>
+        <div class="app-content">
+<?php endif; ?>
+    <!-- Top Header Bar -->
+    <header class="top-header anim-header">
+        <div class="header-left">
+            <?php if (!empty($useSidebar)): ?>
+                <button type="button" class="header-sidebar-btn" id="headerSidebarBtn" title="Toggle sidebar" aria-label="Toggle sidebar">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+            <?php else: ?>
+                <a href="<?php echo app_url('dashboard.php'); ?>" class="brand">
+                    <img src="<?php echo htmlspecialchars($logoSrc); ?>"
+                         alt="<?php echo htmlspecialchars($companyName); ?>"
+                         class="brand-logo"
+                         onerror="this.src='<?php echo app_url('assets/images/logo-placeholder.svg'); ?>'">
+                    <span class="brand-text"><?php echo htmlspecialchars($companyName); ?></span>
+                </a>
+            <?php endif; ?>
+        </div>
+        <?php
+        // Staff + Employee portal can search colleagues
+        $showHeaderEmpSearch = !empty($useSidebar);
+        ?>
+        <div class="header-right">
+            <div class="header-status" id="headerStatus" aria-live="polite">
+                <div class="header-status-item">
+                    <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                    <span class="header-status-line">
+                        Time : <strong class="header-clock" id="headerClock">--:--:-- --</strong>
+                    </span>
+                </div>
+                <div class="header-status-divider" aria-hidden="true"></div>
+                <div class="header-status-item">
+                    <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                    <span class="header-status-line">
+                        Day : <strong class="header-day" id="headerDay"><?php echo htmlspecialchars(date('l')); ?></strong>
+                    </span>
+                </div>
+                <div class="header-status-divider" aria-hidden="true"></div>
+                <div class="header-status-item">
+                    <i class="fa-solid fa-user-check" aria-hidden="true"></i>
+                    <span class="header-status-line">
+                        Logged in as :
+                        <strong class="header-login-user"><?php echo htmlspecialchars(getUserName()); ?></strong>
+                        <?php if (!empty($_SESSION['username'])): ?>
+                            <em class="header-login-handle">(@<?php echo htmlspecialchars((string) $_SESSION['username']); ?>)</em>
+                        <?php endif; ?>
+                    </span>
+                </div>
+            </div>
+
+            <?php if ($showHeaderEmpSearch): ?>
+            <div class="header-emp-search-wrap">
+                <div class="hr-emp-search header-emp-search" id="hrEmpSearch" data-lookup-url="<?php echo htmlspecialchars(app_url('hr/employee_lookup.php')); ?>">
+                    <label class="hr-emp-search-box" for="hrEmpSearchInput">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                        <input type="search"
+                               id="hrEmpSearchInput"
+                               placeholder="Search employee name / code…"
+                               autocomplete="off"
+                               spellcheck="false">
+                    </label>
+                    <div class="hr-emp-search-drop" id="hrEmpSearchDrop" hidden></div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <div class="header-notify" id="headerNotify">
+                <button type="button"
+                        class="header-bell-btn"
+                        id="headerBellBtn"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        aria-controls="headerNotifyPanel"
+                        title="Notifications">
+                    <i class="fa-solid fa-bell"></i>
+                    <?php if ($headerNotifyUnread > 0): ?>
+                        <span class="header-bell-badge"><?php echo $headerNotifyUnread > 9 ? '9+' : (int) $headerNotifyUnread; ?></span>
+                    <?php endif; ?>
+                </button>
+                <div class="header-notify-panel" id="headerNotifyPanel" hidden>
+                    <div class="header-notify-head">
+                        <strong>Notifications</strong>
+                        <?php if ($headerNotifyUnread > 0): ?>
+                            <span class="header-notify-head-links">
+                                <a href="<?php echo app_url('circulars/mark_read.php?all=1'); ?>">Read circulars</a>
+                                ·
+                                <a href="<?php echo app_url('policies/mark_read.php?all=1'); ?>">Read policies</a>
+                                ·
+                                <a href="<?php echo app_url('leave/mark_read.php?all=1'); ?>">Read leave</a>
+                                ·
+                                <a href="<?php echo app_url('employee_voice/mark_read.php?all=1'); ?>">Read voice</a>
+                                ·
+                                <a href="<?php echo app_url('payroll/notify_read.php?all=1'); ?>">Read payroll</a>
+                                <?php if (isAdmin() || isHR()): ?>
+                                ·
+                                <a href="<?php echo app_url('employees/documents_mark_read.php?all=1'); ?>">Read documents</a>
+                                <?php endif; ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="header-notify-body">
+                        <?php if (!$headerNotifyItems): ?>
+                            <div class="header-notify-empty">No new notifications</div>
+                        <?php else: ?>
+                            <?php foreach ($headerNotifyItems as $n): ?>
+                                <a class="header-notify-item" href="<?php echo htmlspecialchars($n['_url']); ?>">
+                                    <span class="header-notify-ico"><i class="fa-solid <?php echo htmlspecialchars($n['_icon']); ?>"></i></span>
+                                    <span class="header-notify-meta">
+                                        <strong><?php echo htmlspecialchars($n['title']); ?></strong>
+                                        <small>
+                                            <?php echo htmlspecialchars($n['_label']); ?>
+                                            · <?php echo htmlspecialchars(formatDateDisplay($n['_date'] ?? '')); ?>
+                                            <?php if (!empty($n['_dept_label'])): ?>
+                                                · <?php echo htmlspecialchars($n['_dept_label']); ?>
+                                            <?php endif; ?>
+                                        </small>
+                                    </span>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                    <div class="header-notify-foot">
+                        <a href="<?php echo app_url('circulars/index.php'); ?>">Circulars</a>
+                        <span aria-hidden="true">·</span>
+                        <a href="<?php echo app_url('policies/index.php'); ?>">Policies</a>
+                        <span aria-hidden="true">·</span>
+                        <a href="<?php echo app_url('leave/index.php'); ?>">My Leave</a>
+                        <span aria-hidden="true">·</span>
+                        <?php if (function_exists('canManageEmployeeVoice') && canManageEmployeeVoice()): ?>
+                            <a href="<?php echo app_url('employee_voice/index.php'); ?>">Employee Voice</a>
+                        <?php else: ?>
+                            <a href="<?php echo app_url('employee/voice/my.php'); ?>">My Voice</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            <div class="user-info">
+                <?php if ($headerEmpProfileUrl !== ''): ?>
+                <a href="<?php echo htmlspecialchars($headerEmpProfileUrl); ?>"
+                   class="user-avatar<?php echo $headerEmpPhotoUrl !== '' ? ' has-photo' : ''; ?>"
+                   title="<?php echo htmlspecialchars(getUserName() . ' · My Profile'); ?>">
+                    <?php if ($headerEmpPhotoUrl !== ''): ?>
+                        <img src="<?php echo htmlspecialchars($headerEmpPhotoUrl); ?>" alt="">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
+                    <?php endif; ?>
+                </a>
+                <?php else: ?>
+                <div class="user-avatar" title="<?php echo htmlspecialchars(getUserName() . ' · ' . getUserRoleLabel()); ?>">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <?php endif; ?>
+                <a href="<?php echo app_url('logout.php'); ?>" class="logout-btn" title="Logout">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
+        </div>
+    </header>
+<?php if (!empty($showHeaderEmpSearch)): ?>
+<div class="hr-emp-view-modal" id="hrEmpViewModal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="hrEmpViewTitle">
+    <div class="hr-emp-view-backdrop" data-hr-emp-close></div>
+    <div class="hr-emp-view-dialog">
+        <div class="hr-emp-view-top">
+            <div>
+                <p class="hr-emp-view-eyebrow">Employee Info</p>
+                <h2 id="hrEmpViewTitle">Quick View</h2>
+            </div>
+            <button type="button" class="hr-emp-view-close" data-hr-emp-close aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="hr-emp-view-body"></div>
+        <div class="hr-emp-view-foot">
+            <span><i class="fa-solid fa-eye"></i> View only · No edit</span>
+            <button type="button" class="btn-secondary" data-hr-emp-close>Close</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+<?php // sidebar layout already opened above when $useSidebar ?>

@@ -1,0 +1,869 @@
+<?php
+/**
+ * Add / Edit Employee Form — same layout for both (hierarchy-wise sections)
+ */
+
+require_once __DIR__ . '/../config/app.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/employee_helper.php';
+require_once __DIR__ . '/../includes/master_helper.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/permission_helper.php';
+
+ensureEmployeesTable();
+ensureMasterTables();
+
+$deptId = isset($_GET['department_id']) ? (int) $_GET['department_id'] : 0;
+$empId  = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+requireAccess('employees', $empId > 0 ? 'edit' : 'add', $deptId);
+$fromContractor = (($_GET['from'] ?? '') === 'contractor');
+
+function empField($employee, $key, $default = '')
+{
+    if (!$employee || !isset($employee[$key]) || $employee[$key] === null) {
+        return $default;
+    }
+    return $employee[$key];
+}
+
+$employee = null;
+if ($empId > 0) {
+    $connSync = getDBConnection();
+    ensureEmployeesTable($connSync);
+    employeeSyncDecidedSalaryFromHistory($connSync, $empId);
+    $connSync->close();
+    $employee = getEmployeeById($empId);
+    if ($employee) {
+        $deptId = (int) $employee['department_id'];
+    }
+} elseif ($empId <= 0 && (($_GET['from'] ?? '') === 'recruitment') && !empty($_GET['rec_id'])) {
+    require_once __DIR__ . '/../includes/recruitment_helper.php';
+    $rec = getRecruitmentApplication((int) $_GET['rec_id']);
+    if ($rec) {
+        $employee = [
+            'full_name' => $rec['full_name'] ?? '',
+            'mobile' => $rec['mobile'] ?? '',
+            'email' => $rec['email'] ?? '',
+            'gender' => $rec['gender'] ?? '',
+            'date_of_birth' => $rec['dob'] ?? '',
+            'dob' => $rec['dob'] ?? '',
+            'marital_status' => $rec['marital_status'] ?? '',
+            'current_address' => $rec['address'] ?? '',
+            'permanent_address' => $rec['address'] ?? '',
+            'city' => $rec['city'] ?? '',
+            'pincode' => $rec['pincode'] ?? '',
+            'aadhaar_number' => $rec['aadhaar_no'] ?? '',
+            'pan_number' => $rec['pan_no'] ?? '',
+            'bank_name' => $rec['bank_name'] ?? '',
+            'bank_account_no' => $rec['bank_account'] ?? '',
+            'ifsc_code' => $rec['bank_ifsc'] ?? '',
+            'department_id' => $deptId,
+        ];
+    }
+}
+
+$department = $deptId > 0 ? getDepartmentById($deptId) : null;
+if (!$department) {
+    header('Location: ' . app_url('dashboard.php'));
+    exit;
+}
+
+$pageTitle = $employee ? 'Edit Employee' : 'Add Employee';
+
+$useSidebar = true;
+$sidebarMode = $fromContractor ? 'contractor' : 'department';
+$sidebarDeptId = $deptId;
+$sidebarActive = $fromContractor ? 'contractor_employees' : 'join_employee';
+$extraCss = ['https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css'];
+$extraJs = [
+    'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js',
+    'assets/js/case_force.js',
+    'assets/js/employee_form.js?v=' . (string) @filemtime(__DIR__ . '/../assets/js/employee_form.js'),
+    'assets/js/subdept_cascade.js',
+];
+
+require_once __DIR__ . '/../includes/header.php';
+
+$departments  = getActiveMasterRows('departments', 'sort_order ASC, department_name ASC');
+$designations = getActiveMasterRows('designations', 'sort_order ASC, name ASC');
+$shifts       = getActiveMasterRows('shifts', 'name ASC');
+$holidays     = getActiveMasterRows('holidays', 'title ASC');
+$assignedStates = getActiveMasterRows('assigned_states', 'sort_order ASC, name ASC');
+$weekOffDays  = getWeekOffDaysFromMaster($holidays);
+$reporters    = getReportingEmployees($empId);
+
+$currentDesignation = empField($employee, 'designation');
+$currentPayType     = normalizePayType(empField($employee, 'pay_type', 'Salary'));
+if (!$employee && (($_GET['pay_type'] ?? '') === 'Jobwork')) {
+    $currentPayType = 'Jobwork';
+}
+if (!$employee && (($_GET['pay_type'] ?? '') === 'ContractorMain')) {
+    $currentPayType = 'ContractorMain';
+}
+$currentMainContractor = (int) empField($employee, 'main_contractor_id', 0);
+$contractorMains = getEmployeesByPayType('ContractorMain', $empId);
+$currentEmpCode     = empField($employee, 'employee_code');
+if ($currentEmpCode === '') {
+    $codeConn = getDBConnection();
+    ensureEmployeesTable($codeConn);
+    $currentEmpCode = generateEmployeeCode($codeConn, $currentPayType);
+    $codeConn->close();
+}
+$shiftSelection     = resolveShiftSelection($shifts, $employee);
+$selectedShiftId    = (int) ($shiftSelection['shift_id'] ?? 0);
+$currentShiftType   = (string) ($shiftSelection['shift_type'] ?? '');
+$currentShiftTime   = (string) ($shiftSelection['shift_time'] ?? '');
+$selectedReporterId = findReportingEmployeeId($reporters, empField($employee, 'reporting_head'));
+$selectedWeekOff    = empField($employee, 'week_off_day');
+if ($selectedWeekOff === '' && !$employee) {
+    $selectedWeekOff = 'Sunday';
+}
+$familyMembers = $empId > 0 ? getEmployeeFamilyMembers($empId) : [];
+$familyCount = count($familyMembers);
+$gender = empField($employee, 'gender');
+$bloodGroup = empField($employee, 'blood_group');
+$maritalStatus = empField($employee, 'marital_status');
+$bloodGroupOptions = employeeBloodGroupOptions();
+$photoFileUrl = employeeDocumentPublicUrl(empField($employee, 'photo_file'));
+$aadharFileUrl = employeeDocumentPublicUrl(empField($employee, 'aadhar_file'));
+$panFileUrl = employeeDocumentPublicUrl(empField($employee, 'pan_file'));
+$exitRaw = empField($employee, 'date_of_exit');
+$isExited = (int) empField($employee, 'status', 1) === 0;
+$isOnFieldDept = isSalesOnFieldDepartment($department ?: ['department_name' => '']);
+$currentAssignedStateId = (int) empField($employee, 'assigned_state_id', 0);
+$currentAssignedLocationId = (int) empField($employee, 'assigned_location_id', 0);
+$assignedLocationsForState = $currentAssignedStateId > 0
+    ? getAssignedLocationsByState($currentAssignedStateId)
+    : [];
+if (!$isExited && $exitRaw !== '' && $exitRaw !== '0000-00-00') {
+    $exitYmd = substr((string) $exitRaw, 0, 10);
+    // DB may already be Y-m-d; also accept display values via parse
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $exitYmd) && function_exists('parseDateInput')) {
+        $exitYmd = (string) (parseDateInput($exitRaw) ?? '');
+    }
+    if ($exitYmd !== '' && $exitYmd <= date('Y-m-d')) {
+        $isExited = true;
+    }
+}
+$pf = empField($employee, 'pf_deduction', 'No');
+$wob = empField($employee, 'week_off_benefits', 'No');
+$hb = empField($employee, 'holiday_benefits', 'No');
+$ob = empField($employee, 'overtime_benefits', 'No');
+?>
+
+<main class="dashboard-main">
+    <div class="page-toolbar flex-between">
+        <a href="<?php echo $fromContractor
+            ? app_url('contractor/employees/index.php')
+            : app_url('employees/index.php?department_id=' . (int) $deptId); ?>" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i>
+            <?php echo $fromContractor ? 'Back to Contractor Employee' : 'Back to Employee List'; ?>
+        </a>
+        <a href="<?php echo app_url('department.php?id=' . (int) $deptId); ?>" class="btn-secondary">
+            <i class="fa-solid fa-puzzle-piece"></i> Module Boxes
+        </a>
+    </div>
+
+    <div class="form-page-card emp-join-card">
+        <form method="POST" action="<?php echo app_url('employees/save.php'); ?>" class="employee-form" id="employeeForm" autocomplete="off" enctype="multipart/form-data">
+            <input type="hidden" name="id" value="<?php echo (int) $empId; ?>">
+            <?php if ($fromContractor): ?>
+                <input type="hidden" name="from" value="contractor">
+            <?php endif; ?>
+
+            <div class="form-page-header emp-form-header">
+                <div class="emp-form-header-text">
+                    <h1><?php echo $employee ? 'Edit Employee' : 'Add Employee'; ?></h1>
+                    <p>
+                        Same form for Add &amp; Edit · Hierarchy-wise sections ·
+                        Department: <strong><?php echo htmlspecialchars($department['department_name']); ?></strong>
+                    </p>
+                </div>
+                <div class="emp-code-header">
+                    <label for="employeeCode">Employee Code</label>
+                    <div class="code-input-row">
+                        <input type="text" name="employee_code" id="employeeCode" class="form-control" required
+                               maxlength="30" placeholder="e.g. AS0001"
+                               value="<?php echo htmlspecialchars($currentEmpCode); ?>"
+                               autocomplete="off">
+                        <button type="button" class="btn-secondary" id="btnGenCode" title="Generate next code">
+                            <i class="fa-solid fa-rotate"></i>
+                        </button>
+                    </div>
+                    <small class="emp-code-hint" id="empCodeHint">Tab out to check if code already exists</small>
+                </div>
+            </div>
+
+            <!-- 1. Personal -->
+            <div class="form-section">
+                <h3><span class="emp-sec-no">1</span><i class="fa-solid fa-user"></i> Personal Information</h3>
+                <div class="emp-subhead">Identity &amp; contact</div>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group span-2">
+                        <label>1. Employee Name <small>(As per Aadhar)</small></label>
+                        <input type="text" name="employee_name" class="form-control" required
+                               value="<?php echo htmlspecialchars(empField($employee, 'employee_name')); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>2. Father / Husband Name</label>
+                        <input type="text" name="father_husband_name" class="form-control"
+                               value="<?php echo htmlspecialchars(empField($employee, 'father_husband_name')); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>3. Date of Birth <small>(DD-MM-YYYY)</small></label>
+                        <input type="text" name="date_of_birth" class="form-control js-date" placeholder="DD-MM-YYYY"
+                               value="<?php echo htmlspecialchars(dateInputValue(empField($employee, 'date_of_birth'))); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>4. Gender</label>
+                        <div class="emp-radio-row">
+                            <label class="emp-radio-option">
+                                <input type="radio" name="gender" value="Male" <?php echo $gender === 'Male' ? 'checked' : ''; ?>>
+                                <span>Male</span>
+                            </label>
+                            <label class="emp-radio-option">
+                                <input type="radio" name="gender" value="Female" <?php echo $gender === 'Female' ? 'checked' : ''; ?>>
+                                <span>Female</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Blood Group</label>
+                        <select name="blood_group" class="form-control" data-placeholder="Select Blood Group">
+                            <option value="">— Select —</option>
+                            <?php foreach ($bloodGroupOptions as $bgOpt): ?>
+                                <option value="<?php echo htmlspecialchars($bgOpt); ?>" <?php echo $bloodGroup === $bgOpt ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($bgOpt); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group marital-status-row">
+                        <label>5. Marital Status</label>
+                        <div class="marital-inline">
+                            <select name="marital_status" id="maritalStatus" class="form-control no-select2">
+                                <option value="">— Select —</option>
+                                <option value="Married" <?php echo $maritalStatus === 'Married' ? 'selected' : ''; ?>>Married</option>
+                                <option value="Unmarried" <?php echo $maritalStatus === 'Unmarried' ? 'selected' : ''; ?>>Unmarried</option>
+                                <option value="Other" <?php echo $maritalStatus === 'Other' ? 'selected' : ''; ?>>Other</option>
+                            </select>
+                            <div class="marital-remark-wrap <?php echo $maritalStatus === 'Other' ? 'is-open' : ''; ?>" id="maritalRemarkWrap">
+                                <input type="text" name="marital_remark" id="maritalRemark" class="form-control"
+                                       maxlength="255" placeholder="Remark"
+                                       value="<?php echo htmlspecialchars(empField($employee, 'marital_remark')); ?>">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="emp-subhead">Address</div>
+                <div class="form-grid form-grid-3 emp-address-grid">
+                    <div class="form-group span-2">
+                        <div class="emp-addr-label-row">
+                            <label for="permanentAddress">6. Permanent Address <small>(As per Aadhar)</small></label>
+                            <label class="emp-same-addr-check" for="sameAsPermanentAddr">
+                                <input type="checkbox" id="sameAsPermanentAddr" value="1">
+                                <span>Same as Permanent Address</span>
+                            </label>
+                        </div>
+                        <textarea name="permanent_address" id="permanentAddress" class="form-control" rows="2"><?php echo htmlspecialchars(empField($employee, 'permanent_address')); ?></textarea>
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="presentAddress">7. Present Address <small>(Current)</small></label>
+                        <textarea name="present_address" id="presentAddress" class="form-control" rows="2"><?php echo htmlspecialchars(empField($employee, 'present_address')); ?></textarea>
+                    </div>
+                </div>
+
+                <div class="emp-subhead">Contact</div>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group">
+                        <label>8. Mobile Number</label>
+                        <input type="text" name="mobile_number" class="form-control" maxlength="15"
+                               value="<?php echo htmlspecialchars(empField($employee, 'mobile_number')); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>9. Emergency Mobile</label>
+                        <input type="text" name="emergency_mobile" class="form-control" maxlength="15"
+                               value="<?php echo htmlspecialchars(empField($employee, 'emergency_mobile')); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>10. Emergency Contact Name</label>
+                        <input type="text" name="emergency_contact_name" class="form-control" maxlength="150"
+                               value="<?php echo htmlspecialchars(empField($employee, 'emergency_contact_name')); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>11. Emergency Contact Relation</label>
+                        <input type="text" name="emergency_contact_relation" class="form-control" maxlength="100"
+                               placeholder="Father / Mother / Spouse…"
+                               value="<?php echo htmlspecialchars(empField($employee, 'emergency_contact_relation')); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>12. Office Mail ID</label>
+                        <input type="email" name="office_email" class="form-control" maxlength="150"
+                               placeholder="name@company.com"
+                               value="<?php echo htmlspecialchars(empField($employee, 'office_email')); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>13. Office Mobile Number</label>
+                        <input type="text" name="office_mobile" class="form-control" maxlength="15"
+                               value="<?php echo htmlspecialchars(empField($employee, 'office_mobile')); ?>">
+                    </div>
+                </div>
+
+                <div class="emp-subhead">Photo &amp; documents</div>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group">
+                        <label>14. Photo Upload</label>
+                        <div class="emp-photo-upload">
+                            <div class="emp-photo-preview" id="photoPreview">
+                                <?php if ($photoFileUrl !== ''): ?>
+                                    <img src="<?php echo htmlspecialchars($photoFileUrl); ?>" alt="Employee photo">
+                                <?php else: ?>
+                                    <span class="emp-photo-placeholder"><i class="fa-solid fa-camera"></i></span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="emp-photo-controls">
+                                <input type="file" name="photo_file" id="photoFile" class="doc-file-input" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                                <small class="form-hint">JPG / PNG / WEBP · max 5MB</small>
+                                <?php if ($photoFileUrl !== ''): ?>
+                                    <a href="<?php echo htmlspecialchars($photoFileUrl); ?>" class="doc-view-link" target="_blank" rel="noopener">
+                                        <i class="fa-solid fa-eye"></i> View Photo
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>15. Aadhar Card Number</label>
+                        <input type="text" name="aadhar_number" class="form-control" maxlength="20"
+                               value="<?php echo htmlspecialchars(empField($employee, 'aadhar_number')); ?>">
+                        <div class="doc-attach-row">
+                            <span class="doc-attach-caption">Attachment</span>
+                            <input type="file" name="aadhar_file" class="doc-file-input" accept=".jpg,.jpeg,.png,.pdf,.webp">
+                            <?php if ($aadharFileUrl !== ''): ?>
+                                <a href="<?php echo htmlspecialchars($aadharFileUrl); ?>" class="doc-view-link" target="_blank" rel="noopener">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>16. PAN Card Number</label>
+                        <input type="text" name="pan_number" class="form-control" maxlength="20"
+                               value="<?php echo htmlspecialchars(empField($employee, 'pan_number')); ?>">
+                        <div class="doc-attach-row">
+                            <span class="doc-attach-caption">Attachment</span>
+                            <input type="file" name="pan_file" class="doc-file-input" accept=".jpg,.jpeg,.png,.pdf,.webp">
+                            <?php if ($panFileUrl !== ''): ?>
+                                <a href="<?php echo htmlspecialchars($panFileUrl); ?>" class="doc-view-link" target="_blank" rel="noopener">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Job -->
+            <div class="form-section">
+                <h3><span class="emp-sec-no">2</span><i class="fa-solid fa-briefcase"></i> Job Information</h3>
+                <div class="emp-subhead">Employment type &amp; codes</div>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group"><label>17. Pay Type</label>
+                        <?php if ($fromContractor): ?>
+                            <input type="hidden" name="pay_type" id="payType" value="Jobwork">
+                            <input type="text" class="form-control" value="Jobwork" readonly>
+                        <?php else: ?>
+                        <select name="pay_type" id="payType" class="form-control" required>
+                            <option value="Salary" <?php echo $currentPayType === 'Salary' ? 'selected' : ''; ?>>Normal Salary</option>
+                            <option value="Jobwork" <?php echo $currentPayType === 'Jobwork' ? 'selected' : ''; ?>>Contractor Jobwork</option>
+                            <option value="ContractorMain" <?php echo $currentPayType === 'ContractorMain' ? 'selected' : ''; ?>>Contractor Main</option>
+                        </select>
+                        <?php endif; ?>
+                    </div>
+                    <div class="form-group" id="mainContractorWrap" style="<?php echo $currentPayType === 'Jobwork' ? '' : 'display:none;'; ?>"><label>18. Contractor Main</label>
+                        <select name="main_contractor_id" id="mainContractorId" class="form-control">
+                            <option value="0">— None —</option>
+                            <?php foreach ($contractorMains as $cm): ?>
+                                <option value="<?php echo (int) $cm['id']; ?>" <?php echo $currentMainContractor === (int) $cm['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(($cm['employee_code'] ?? '') . ' — ' . ($cm['employee_name'] ?? '')); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>19. Biometric User ID</label>
+                        <input type="text" name="biometric_user_id" class="form-control" maxlength="50"
+                               value="<?php echo htmlspecialchars(empField($employee, 'biometric_user_id')); ?>">
+                    </div>
+                </div>
+
+                <div class="emp-subhead">Job Description</div>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group"><label>21. Department</label>
+                        <select name="department_id" id="empDepartmentId" class="form-control" required>
+                            <?php foreach ($departments as $dept): ?>
+                                <option value="<?php echo (int) $dept['id']; ?>"
+                                        data-on-field="<?php echo isSalesOnFieldDepartment($dept) ? '1' : '0'; ?>"
+                                        <?php echo ((int) $dept['id'] === $deptId) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($dept['department_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>22. Sub Department</label>
+                        <select name="sub_department_id" class="form-control"
+                                data-selected="<?php echo (int) empField($employee, 'sub_department_id', 0); ?>">
+                            <option value="">Select Sub Department</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>23. Designation</label>
+                        <select name="designation" class="form-control">
+                            <option value="">— Select designation —</option>
+                            <?php foreach ($designations as $des): ?>
+                                <?php $desName = (string) ($des['name'] ?? ''); ?>
+                                <option value="<?php echo htmlspecialchars($desName); ?>" <?php echo ($currentDesignation === $desName) ? 'selected' : ''; ?>>
+                                    <?php
+                                    $desCode = trim((string) ($des['code'] ?? ''));
+                                    echo htmlspecialchars($desCode !== '' ? ($desCode . ' — ' . $desName) : $desName);
+                                    ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <?php if ($currentDesignation !== '' && !in_array($currentDesignation, array_column($designations, 'name'), true)): ?>
+                                <option value="<?php echo htmlspecialchars($currentDesignation); ?>" selected>
+                                    <?php echo htmlspecialchars($currentDesignation); ?> (current)
+                                </option>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Emp Desk No</label>
+                        <input type="text" name="desk_no" class="form-control" maxlength="50"
+                               placeholder="e.g. D-101"
+                               value="<?php echo htmlspecialchars(empField($employee, 'desk_no')); ?>">
+                    </div>
+                    <?php $canteenUse = empField($employee, 'canteen_use', 'No') === 'Yes' ? 'Yes' : 'No'; ?>
+                    <div class="form-group"><label>Canteen Use</label>
+                        <div class="radio-row">
+                            <label><input type="radio" name="canteen_use" value="Yes" <?php echo $canteenUse === 'Yes' ? 'checked' : ''; ?>> Yes</label>
+                            <label><input type="radio" name="canteen_use" value="No" <?php echo $canteenUse === 'No' ? 'checked' : ''; ?>> No</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="onFieldAssignWrap" class="on-field-assign-block" style="<?php echo !empty($isOnFieldDept) ? '' : 'display:none;'; ?>">
+                    <div class="emp-subhead">Assigned territory (Sales On Field)</div>
+                    <div class="form-grid form-grid-3">
+                        <div class="form-group">
+                            <label>Assigned State</label>
+                            <select name="assigned_state_id" id="assignedStateId" class="form-control">
+                                <option value="0">— Select state —</option>
+                                <?php foreach (($assignedStates ?? []) as $st): ?>
+                                    <option value="<?php echo (int) $st['id']; ?>" <?php echo ((int) ($currentAssignedStateId ?? 0) === (int) $st['id']) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars((string) $st['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Assigned Location</label>
+                            <select name="assigned_location_id" id="assignedLocationId" class="form-control"
+                                    data-selected="<?php echo (int) ($currentAssignedLocationId ?? 0); ?>">
+                                <option value="0">— Select location —</option>
+                                <?php foreach (($assignedLocationsForState ?? []) as $loc): ?>
+                                    <option value="<?php echo (int) $loc['id']; ?>"
+                                        <?php echo ((int) ($currentAssignedLocationId ?? 0) === (int) $loc['id']) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars((string) $loc['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <?php
+                    $locHist = ($empId > 0) ? getEmployeeLocationHistory($empId) : [];
+                    $hasLocHist = !empty($locHist);
+                    ?>
+                    <div class="form-group full" style="margin-top:8px;">
+                        <div class="salary-history-box location-history-box">
+                            <div class="salary-history-head">Location Change History</div>
+                            <p class="salary-history-empty" <?php echo $hasLocHist ? 'hidden' : ''; ?>>
+                                No location changes yet. Save after changing state / location to record history.
+                            </p>
+                            <div class="salary-history-scroll" <?php echo $hasLocHist ? '' : 'hidden'; ?>>
+                                <table class="salary-history-table location-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-eff">Date / Time</th>
+                                            <th class="col-note">Old State / Location</th>
+                                            <th class="col-note">New State / Location</th>
+                                            <th class="col-by">Changed By (Login)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($locHist as $h):
+                                            $oldShow = trim(
+                                                ((string) ($h['old_state_name'] ?? '') !== '' ? $h['old_state_name'] : '—')
+                                                . ' / '
+                                                . ((string) ($h['old_location_name'] ?? '') !== '' ? $h['old_location_name'] : '—')
+                                            );
+                                            $newShow = trim(
+                                                ((string) ($h['new_state_name'] ?? '') !== '' ? $h['new_state_name'] : '—')
+                                                . ' / '
+                                                . ((string) ($h['new_location_name'] ?? '') !== '' ? $h['new_location_name'] : '—')
+                                            );
+                                            $when = !empty($h['created_at'])
+                                                ? formatDateTimeDisplay($h['created_at'])
+                                                : '—';
+                                            ?>
+                                            <tr>
+                                                <td class="col-eff"><?php echo htmlspecialchars($when); ?></td>
+                                                <td class="col-note"><?php echo htmlspecialchars($oldShow); ?></td>
+                                                <td class="col-note"><strong><?php echo htmlspecialchars($newShow); ?></strong></td>
+                                                <td class="col-by"><?php echo htmlspecialchars((string) ($h['changed_by_label'] ?? '—')); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="emp-subhead">Joining &amp; status</div>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group"><label>24. Date of Joining <small>(DD-MM-YYYY)</small></label>
+                        <input type="text" name="date_of_joining" class="form-control js-date" placeholder="DD-MM-YYYY"
+                               value="<?php echo htmlspecialchars(dateInputValue(empField($employee, 'date_of_joining'))); ?>">
+                    </div>
+                    <div class="form-group"><label>25. Exit Date <small>(DD-MM-YYYY)</small></label>
+                        <input type="text" name="date_of_exit" id="dateOfExitInput" class="form-control js-date" placeholder="DD-MM-YYYY"
+                               value="<?php echo htmlspecialchars(dateInputValue(empField($employee, 'date_of_exit'))); ?>">
+                        <small class="form-hint">Exit date → Exit Employees tab. Status Active (from Exit tab) → exit date clears, employee runs again.</small>
+                    </div>
+                    <div class="form-group"><label>26. Employee Status</label>
+                        <select name="status" id="empStatusSelect" class="form-control">
+                            <option value="1" <?php echo !$isExited ? 'selected' : ''; ?>>Active</option>
+                            <option value="0" <?php echo $isExited ? 'selected' : ''; ?>>Deactive (Exit / Inactive)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="emp-subhead">Shift</div>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group"><label>27. Shift</label>
+                        <select name="shift_id" id="shiftSelect" class="form-control">
+                            <option value="">— Select shift —</option>
+                            <?php foreach ($shifts as $shift): ?>
+                                <?php
+                                $sid = (int) $shift['id'];
+                                $range = formatShiftTimeRange($shift);
+                                $stype = (string) ($shift['shift_type'] ?? 'Day');
+                                ?>
+                                <option value="<?php echo $sid; ?>"
+                                        data-type="<?php echo htmlspecialchars($stype); ?>"
+                                        data-time="<?php echo htmlspecialchars($range); ?>"
+                                    <?php echo ($selectedShiftId === $sid) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(formatShiftOptionLabel($shift)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>28. Shift Type</label>
+                        <input type="text" id="shiftTypeDisplay" class="form-control" readonly
+                               value="<?php echo htmlspecialchars($currentShiftType); ?>">
+                        <input type="hidden" name="shift_type" id="shiftType" value="<?php echo htmlspecialchars($currentShiftType); ?>">
+                    </div>
+                    <div class="form-group"><label>29. Shift Time</label>
+                        <input type="text" name="shift_time" id="shiftTime" class="form-control" readonly
+                               placeholder="Select shift to auto-fill"
+                               value="<?php echo htmlspecialchars($currentShiftTime); ?>">
+                    </div>
+                </div>
+
+                <div class="emp-subhead">Salary &amp; reporting</div>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group"><label>30. PF Deduction</label>
+                        <div class="radio-row">
+                            <label><input type="radio" name="pf_deduction" value="Yes" <?php echo $pf === 'Yes' ? 'checked' : ''; ?>> Yes</label>
+                            <label><input type="radio" name="pf_deduction" value="No" <?php echo $pf === 'No' ? 'checked' : ''; ?>> No</label>
+                        </div>
+                    </div>
+                    <div class="form-group"><label>31. PF Start Date <small>(DD-MM-YYYY)</small></label>
+                        <input type="text" name="pf_start_date" class="form-control js-date" placeholder="DD-MM-YYYY"
+                               value="<?php echo htmlspecialchars(dateInputValue(empField($employee, 'pf_start_date'))); ?>">
+                    </div>
+                    <div class="form-group"><label>32. Employee PF Contribution <small>(12% of basic)</small></label>
+                        <input type="number" step="0.01" min="0" name="pf_employee_contribution" id="pfEmployeeContribution" class="form-control"
+                               placeholder="Auto from Decided Salary"
+                               value="<?php echo htmlspecialchars(empField($employee, 'pf_employee_contribution')); ?>">
+                        <small class="form-hint">Basic ceiling ₹15,000 × 12% · deducts from salary</small>
+                    </div>
+                    <div class="form-group"><label>33. UAN Number</label>
+                        <input type="text" name="uan_number" class="form-control"
+                               value="<?php echo htmlspecialchars(empField($employee, 'uan_number')); ?>">
+                    </div>
+                    <div class="form-group"><label>34. Decided Salary</label>
+                        <?php if ($empId > 0): ?>
+                            <div class="salary-revise-wrap">
+                                <input type="number" step="0.01" name="decided_salary" id="decidedSalary" class="form-control"
+                                       value="<?php echo htmlspecialchars(empField($employee, 'decided_salary')); ?>"
+                                       title="You can edit salary directly, or use Add Increment Details for history">
+                                <button type="button" class="btn-secondary" id="btnReviseSalary" title="Add increment / decrease with effective date">
+                                    <i class="fa-solid fa-plus"></i> Add Increment Details
+                                </button>
+                            </div>
+                        <?php else: ?>
+                            <input type="number" step="0.01" name="decided_salary" id="decidedSalary" class="form-control"
+                                   value="<?php echo htmlspecialchars(empField($employee, 'decided_salary')); ?>">
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($empId > 0):
+                        $salHist = getEmployeeSalaryHistory($empId);
+                        $hasSalHist = !empty($salHist);
+                        ?>
+                    <div class="form-group full">
+                        <div id="salaryHistoryBox" class="salary-history-box">
+                            <div class="salary-history-head">Salary History</div>
+                            <p class="salary-history-empty" id="salaryHistoryEmpty" <?php echo $hasSalHist ? 'hidden' : ''; ?>>
+                                No increment details yet. Use Add Increment Details for increase / decrease.
+                            </p>
+                            <div class="salary-history-scroll" <?php echo $hasSalHist ? '' : 'hidden'; ?>>
+                                <table class="salary-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-eff">Effective Date</th>
+                                            <th class="col-amt">Old Salary</th>
+                                            <th class="col-chg">Change</th>
+                                            <th class="col-amt">New Salary</th>
+                                            <th class="col-note">Note</th>
+                                            <th class="col-by">Changed By (Login)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="salaryHistoryBody">
+                                        <?php foreach ($salHist as $h):
+                                            $chg = (float) $h['change_amount'];
+                                            $cls = $chg >= 0 ? 'is-up' : 'is-down';
+                                            ?>
+                                            <tr>
+                                                <td class="col-eff"><?php echo htmlspecialchars(formatDateDisplay($h['effective_date'])); ?></td>
+                                                <td class="col-amt">₹ <?php echo number_format((float) $h['old_salary'], 2); ?></td>
+                                                <td class="col-chg <?php echo $cls; ?>"><?php echo ($chg >= 0 ? '+' : '') . number_format($chg, 2); ?></td>
+                                                <td class="col-amt"><strong>₹ <?php echo number_format((float) $h['new_salary'], 2); ?></strong></td>
+                                                <td class="col-note"><?php echo htmlspecialchars((string) ($h['remarks'] ?? '—')); ?></td>
+                                                <td class="col-by"><?php echo htmlspecialchars((string) ($h['changed_by_label'] ?? '—')); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <div class="form-group"><label>35. Reporting Person</label>
+                        <select name="reporting_employee_id" class="form-control">
+                            <option value="">— Select reporting person —</option>
+                            <?php foreach ($reporters as $rep): ?>
+                                <?php $rid = (int) $rep['id']; ?>
+                                <option value="<?php echo $rid; ?>" <?php echo ($selectedReporterId === $rid) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(reportingPersonLabel($rep)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Family -->
+            <div class="form-section">
+                <h3><span class="emp-sec-no">3</span><i class="fa-solid fa-people-roof"></i> Family Details</h3>
+                <div class="emp-subhead">Enter member count — rows open below</div>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group"><label>36. Family Members</label>
+                        <input type="number" id="familyMemberCount" class="form-control" min="0" max="10" step="1"
+                               value="<?php echo (int) $familyCount; ?>" placeholder="e.g. 3 or 4">
+                        <small class="form-hint">0–10 members</small>
+                    </div>
+                </div>
+                <div id="familyMembersList" class="family-members-list">
+                    <?php for ($i = 0; $i < max($familyCount, 0); $i++):
+                        $fm = $familyMembers[$i] ?? ['member_name' => '', 'relation_name' => '', 'occupation' => ''];
+                        ?>
+                        <div class="family-member-card" data-index="<?php echo $i; ?>">
+                            <div class="family-member-head">Family Member <?php echo $i + 1; ?></div>
+                            <div class="form-grid form-grid-3">
+                                <div class="form-group">
+                                    <label>Name of Family Member</label>
+                                    <input type="text" name="family_name[]" class="form-control"
+                                           value="<?php echo htmlspecialchars((string) ($fm['member_name'] ?? '')); ?>">
+                                </div>
+                                <div class="form-group">
+                                    <label>Relation</label>
+                                    <input type="text" name="family_relation[]" class="form-control"
+                                           placeholder="Father / Mother / Spouse / Son…"
+                                           value="<?php echo htmlspecialchars((string) ($fm['relation_name'] ?? '')); ?>">
+                                </div>
+                                <div class="form-group">
+                                    <label>Occupation</label>
+                                    <input type="text" name="family_occupation[]" class="form-control"
+                                           value="<?php echo htmlspecialchars((string) ($fm['occupation'] ?? '')); ?>">
+                                </div>
+                            </div>
+                        </div>
+                    <?php endfor; ?>
+                </div>
+                <template id="familyMemberTpl">
+                    <div class="family-member-card" data-index="__INDEX__">
+                        <div class="family-member-head">Family Member __NUM__</div>
+                        <div class="form-grid form-grid-3">
+                            <div class="form-group">
+                                <label>Name of Family Member</label>
+                                <input type="text" name="family_name[]" class="form-control" value="">
+                            </div>
+                            <div class="form-group">
+                                <label>Relation</label>
+                                <input type="text" name="family_relation[]" class="form-control" placeholder="Father / Mother / Spouse / Son…" value="">
+                            </div>
+                            <div class="form-group">
+                                <label>Occupation</label>
+                                <input type="text" name="family_occupation[]" class="form-control" value="">
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- 4. Bank -->
+            <div class="form-section">
+                <h3><span class="emp-sec-no">4</span><i class="fa-solid fa-building-columns"></i> Bank Information</h3>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group"><label>37. Bank Name</label>
+                        <input type="text" name="bank_name" class="form-control"
+                               value="<?php echo htmlspecialchars(empField($employee, 'bank_name')); ?>">
+                    </div>
+                    <div class="form-group"><label>38. Bank Account Number</label>
+                        <input type="text" name="bank_account_number" id="bankAccountNumber" class="form-control"
+                               autocomplete="off"
+                               value="<?php echo htmlspecialchars(empField($employee, 'bank_account_number')); ?>">
+                    </div>
+                    <div class="form-group"><label>39. Confirm Account Number</label>
+                        <input type="text" name="bank_account_number_confirm" id="bankAccountNumberConfirm" class="form-control"
+                               autocomplete="off"
+                               value="<?php echo htmlspecialchars(empField($employee, 'bank_account_number')); ?>"
+                               placeholder="Re-enter account number">
+                        <small id="bankAccountConfirmError" class="form-error-msg" hidden>Must match account number above</small>
+                    </div>
+                    <div class="form-group"><label>40. IFSC Code</label>
+                        <input type="text" name="ifsc_code" class="form-control"
+                               value="<?php echo htmlspecialchars(empField($employee, 'ifsc_code')); ?>">
+                    </div>
+                    <div class="form-group full"><label>41. Bank Branch Address</label>
+                        <textarea name="bank_branch_address" class="form-control" rows="2"><?php echo htmlspecialchars(empField($employee, 'bank_branch_address')); ?></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Other -->
+            <div class="form-section">
+                <h3><span class="emp-sec-no">5</span><i class="fa-solid fa-clipboard-list"></i> Other Details</h3>
+                <div class="form-grid form-grid-3">
+                    <div class="form-group"><label>42. Week-off Day <span class="req">*</span></label>
+                        <select name="week_off_day" class="form-control" required>
+                            <option value="">— Select —</option>
+                            <?php foreach ($weekOffDays as $day): ?>
+                                <option value="<?php echo htmlspecialchars($day); ?>" <?php echo ($selectedWeekOff === $day) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($day); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <?php if ($selectedWeekOff !== '' && !in_array($selectedWeekOff, $weekOffDays, true)): ?>
+                                <option value="<?php echo htmlspecialchars($selectedWeekOff); ?>" selected>
+                                    <?php echo htmlspecialchars($selectedWeekOff); ?> (current)
+                                </option>
+                            <?php endif; ?>
+                        </select>
+                        <small class="form-hint">Change applies from <strong>today</strong> onward. Past attendance / payroll days keep the previous week-off.</small>
+                    </div>
+                    <div class="form-group"><label>43. Week-off Benefits</label>
+                        <div class="radio-row">
+                            <label><input type="radio" name="week_off_benefits" value="Yes" <?php echo $wob === 'Yes' ? 'checked' : ''; ?>> Yes</label>
+                            <label><input type="radio" name="week_off_benefits" value="No" <?php echo $wob === 'No' ? 'checked' : ''; ?>> No</label>
+                        </div>
+                    </div>
+                    <div class="form-group"><label>44. Holiday Benefits</label>
+                        <div class="radio-row">
+                            <label><input type="radio" name="holiday_benefits" value="Yes" <?php echo $hb === 'Yes' ? 'checked' : ''; ?>> Yes</label>
+                            <label><input type="radio" name="holiday_benefits" value="No" <?php echo $hb === 'No' ? 'checked' : ''; ?>> No</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>45. Overtime Benefits</label>
+                        <div class="radio-row">
+                            <label><input type="radio" name="overtime_benefits" value="Yes" <?php echo $ob === 'Yes' ? 'checked' : ''; ?>> Yes</label>
+                            <label><input type="radio" name="overtime_benefits" value="No" <?php echo $ob === 'No' ? 'checked' : ''; ?>> No</label>
+                        </div>
+                    </div>
+                    <div class="form-group span-2">
+                        <label>46. Extra Note</label>
+                        <textarea name="extra_note" class="form-control" rows="2"><?php echo htmlspecialchars(empField($employee, 'extra_note')); ?></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions sticky-actions">
+                <button type="submit" class="btn-primary">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Employee
+                </button>
+                <a href="<?php echo $fromContractor
+                    ? app_url('contractor/employees/index.php')
+                    : app_url('employees/index.php?department_id=' . (int) $deptId); ?>" class="btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</main>
+
+<?php if ($empId > 0): ?>
+<div id="salaryReviseModal" class="salary-revise-modal" hidden>
+    <div class="salary-revise-backdrop" data-close-salary-modal></div>
+    <div class="salary-revise-box" role="dialog" aria-labelledby="salaryReviseTitle">
+        <h3 id="salaryReviseTitle"><i class="fa-solid fa-indian-rupee-sign"></i> Add Increment Details</h3>
+        <p class="salary-revise-sub">Existing salary + increase/decrease + from which date new salary starts</p>
+        <div class="salary-revise-grid">
+            <div class="form-group">
+                <label>Existing Salary</label>
+                <input type="text" id="salExistDisp" class="form-control" readonly>
+            </div>
+            <div class="form-group">
+                <label>Vadharo / Ghatado <small>(+/-)</small></label>
+                <input type="number" step="0.01" id="salChangeAmt" class="form-control" placeholder="e.g. 2000 or -500">
+            </div>
+            <div class="form-group">
+                <label>Effective Date <small>(DD-MM-YYYY)</small></label>
+                <input type="text" id="salEffectiveDate" class="form-control js-date" placeholder="DD-MM-YYYY">
+            </div>
+            <div class="form-group">
+                <label>New Salary <small>(preview)</small></label>
+                <input type="text" id="salNewPreview" class="form-control" readonly>
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label>Note <small>(optional)</small></label>
+                <input type="text" id="salRemark" class="form-control" placeholder="e.g. Annual increment">
+            </div>
+        </div>
+        <div class="salary-revise-actions">
+            <button type="button" class="btn-primary" id="salReviseOk"><i class="fa-solid fa-check"></i> OK</button>
+            <button type="button" class="btn-secondary" data-close-salary-modal>Cancel</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<script>
+    window.EMP_NEXT_CODE_URL = <?php echo json_encode(app_url('employees/next_code.php')); ?>;
+    window.EMP_CHECK_CODE_URL = <?php echo json_encode(app_url('employees/check_code.php')); ?>;
+    window.EMP_IS_NEW = <?php echo $empId > 0 ? 'false' : 'true'; ?>;
+    window.EMP_ID = <?php echo (int) $empId; ?>;
+    window.EMP_SALARY_REVISE_URL = <?php echo json_encode(app_url('employees/salary_revise.php')); ?>;
+    window.SUBDEPT_URL = <?php echo json_encode(app_url('masters/sub_departments/by_department.php')); ?>;
+    window.SUBDEPT_SELECTED = <?php echo json_encode((string) empField($employee, 'sub_department_id', '0')); ?>;
+    window.LOC_BY_STATE_URL = <?php echo json_encode(app_url('masters/locations/by_state.php')); ?>;
+    window.ASSIGNED_LOC_SELECTED = <?php echo json_encode((string) ($currentAssignedLocationId ?? 0)); ?>;
+</script>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

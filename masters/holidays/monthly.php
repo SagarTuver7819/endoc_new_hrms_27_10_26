@@ -1,0 +1,198 @@
+<?php
+/**
+ * Holiday Master — Monthly Holiday Set (optional department scope)
+ */
+
+$masterKey = 'holidays';
+require_once __DIR__ . '/../_core/bootstrap.php';
+require_once __DIR__ . '/../../includes/master_helper.php';
+require_once __DIR__ . '/../../includes/employee_helper.php';
+
+ensureMasterTables();
+
+$scopeDeptId = (int) ($_GET['department_id'] ?? 0);
+$scopeDept = $scopeDeptId > 0 ? getDepartmentById($scopeDeptId) : null;
+if ($scopeDeptId > 0 && !$scopeDept) {
+    $scopeDeptId = 0;
+}
+
+$month = (int) ($_GET['month'] ?? date('n'));
+$year = (int) ($_GET['year'] ?? date('Y'));
+if ($month < 1 || $month > 12) {
+    $month = (int) date('n');
+}
+if ($year < 2000 || $year > 2100) {
+    $year = (int) date('Y');
+}
+
+$monthDays = (int) date('t', strtotime(sprintf('%04d-%02d-01', $year, $month)));
+$from = sprintf('%04d-%02d-01', $year, $month);
+$to = sprintf('%04d-%02d-%02d', $year, $month, $monthDays);
+
+$conn = getDBConnection();
+ensureMasterTables($conn);
+if ($scopeDeptId > 0) {
+    $stmt = $conn->prepare(
+        "SELECT id, title, holiday_date, holiday_to_date, is_paid, remarks, department_id
+         FROM holidays
+         WHERE status = 1 AND holiday_type = 'Holiday'
+           AND holiday_date IS NOT NULL
+           AND holiday_date <= ?
+           AND COALESCE(NULLIF(holiday_to_date, '0000-00-00'), holiday_date) >= ?
+           AND department_id = ?
+         ORDER BY holiday_date ASC"
+    );
+    $stmt->bind_param('ssi', $to, $from, $scopeDeptId);
+} else {
+    $stmt = $conn->prepare(
+        "SELECT id, title, holiday_date, holiday_to_date, is_paid, remarks, department_id
+         FROM holidays
+         WHERE status = 1 AND holiday_type = 'Holiday'
+           AND holiday_date IS NOT NULL
+           AND holiday_date <= ?
+           AND COALESCE(NULLIF(holiday_to_date, '0000-00-00'), holiday_date) >= ?
+           AND (department_id IS NULL OR department_id = 0)
+         ORDER BY holiday_date ASC"
+    );
+    $stmt->bind_param('ss', $to, $from);
+}
+$stmt->execute();
+$existing = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+$conn->close();
+
+$byDate = [];
+foreach ($existing as $r) {
+    foreach (holidayExpandDates($r['holiday_date'] ?? '', $r['holiday_to_date'] ?? '') as $d) {
+        if ($d < $from || $d > $to) {
+            continue;
+        }
+        $byDate[$d] = $r;
+    }
+}
+
+$pageTitle = 'Monthly Holiday Set';
+$useSidebar = true;
+if ($scopeDeptId > 0) {
+    $sidebarMode = 'department';
+    $sidebarDeptId = $scopeDeptId;
+} else {
+    $sidebarMode = 'masters';
+}
+$sidebarActive = 'holidays';
+$msg = (string) ($_GET['msg'] ?? '');
+$deptQs = $scopeDeptId > 0 ? ('&department_id=' . $scopeDeptId) : '';
+$listUrl = app_url('masters/holidays/index.php' . ($scopeDeptId > 0 ? ('?department_id=' . $scopeDeptId) : ''));
+
+require_once __DIR__ . '/../../includes/header.php';
+?>
+
+<main class="dashboard-main">
+    <div class="page-toolbar flex-between">
+        <a href="<?php echo htmlspecialchars($listUrl); ?>" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i> Back to Holiday Master
+        </a>
+    </div>
+
+    <div class="form-page-card">
+        <div class="form-page-header">
+            <div>
+                <h1>Monthly Holiday Set</h1>
+                <p>
+                    <?php if ($scopeDept): ?>
+                        Department: <strong><?php echo htmlspecialchars($scopeDept['department_name']); ?></strong> ·
+                    <?php else: ?>
+                        Scope: <strong>All Departments</strong> ·
+                    <?php endif; ?>
+                    Paid holidays count in salary when employee Holiday Benefits = Yes.
+                </p>
+            </div>
+        </div>
+
+        <?php if ($msg === 'saved'): ?>
+            <div class="login-alert" style="background:#ecfdf5;border-color:#a7f3d0;color:#047857;margin-bottom:16px;">
+                Monthly holidays saved.
+            </div>
+        <?php endif; ?>
+
+        <form method="GET" class="employee-form" style="margin-bottom:16px;">
+            <?php if ($scopeDeptId > 0): ?>
+                <input type="hidden" name="department_id" value="<?php echo (int) $scopeDeptId; ?>">
+            <?php endif; ?>
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label>Month</label>
+                    <select name="month" class="form-control" onchange="this.form.submit()">
+                        <?php for ($m = 1; $m <= 12; $m++): ?>
+                            <option value="<?php echo $m; ?>" <?php echo $m === $month ? 'selected' : ''; ?>>
+                                <?php echo date('F', mktime(0, 0, 0, $m, 1)); ?>
+                            </option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Year</label>
+                    <input type="number" name="year" class="form-control" value="<?php echo $year; ?>" onchange="this.form.submit()">
+                </div>
+            </div>
+        </form>
+
+        <form method="POST" action="<?php echo app_url('masters/holidays/monthly_save.php'); ?>" class="employee-form">
+            <input type="hidden" name="month" value="<?php echo $month; ?>">
+            <input type="hidden" name="year" value="<?php echo $year; ?>">
+            <input type="hidden" name="department_id" value="<?php echo (int) $scopeDeptId; ?>">
+
+            <div class="table-wrap">
+                <table class="data-table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th style="width:70px;">Select</th>
+                            <th>Date</th>
+                            <th>Day</th>
+                            <th>Title</th>
+                            <th>Paid</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php for ($d = 1; $d <= $monthDays; $d++):
+                        $date = sprintf('%04d-%02d-%02d', $year, $month, $d);
+                        $dayName = date('l', strtotime($date));
+                        $row = $byDate[$date] ?? null;
+                        $checked = $row ? 'checked' : '';
+                        $title = $row ? (string) $row['title'] : '';
+                        $paid = $row ? (string) ($row['is_paid'] ?? 'Yes') : 'Yes';
+                        ?>
+                        <tr>
+                            <td class="center">
+                                <input type="checkbox" name="days[<?php echo $d; ?>][on]" value="1" <?php echo $checked; ?>>
+                            </td>
+                            <td><?php echo formatDateDisplay($date); ?></td>
+                            <td><?php echo htmlspecialchars($dayName); ?></td>
+                            <td>
+                                <input type="text" name="days[<?php echo $d; ?>][title]" class="form-control"
+                                       value="<?php echo htmlspecialchars($title); ?>"
+                                       placeholder="e.g. Independence Day">
+                            </td>
+                            <td>
+                                <select name="days[<?php echo $d; ?>][is_paid]" class="form-control">
+                                    <option value="Yes" <?php echo $paid === 'Yes' ? 'selected' : ''; ?>>Yes (Paid)</option>
+                                    <option value="No" <?php echo $paid === 'No' ? 'selected' : ''; ?>>No</option>
+                                </select>
+                            </td>
+                        </tr>
+                    <?php endfor; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-actions sticky-actions">
+                <button type="submit" class="btn-primary">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Monthly Holidays
+                </button>
+                <a href="<?php echo htmlspecialchars($listUrl); ?>" class="btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</main>
+
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>

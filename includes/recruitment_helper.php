@@ -1,0 +1,1888 @@
+<?php
+/**
+ * Recruitment — applications, uploads, QR apply URL
+ */
+
+if (!function_exists('ensureRecruitmentTables')) {
+
+    function ensureRecruitmentTables($conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+
+        $conn->query(
+            "CREATE TABLE IF NOT EXISTS recruitment_applications (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                application_no VARCHAR(40) NOT NULL,
+                department_id INT DEFAULT NULL,
+                designation_id INT DEFAULT NULL,
+                department_name VARCHAR(150) NOT NULL DEFAULT '',
+                position_name VARCHAR(150) NOT NULL DEFAULT '',
+                full_name VARCHAR(150) NOT NULL,
+                email VARCHAR(150) NOT NULL DEFAULT '',
+                mobile VARCHAR(20) NOT NULL,
+                alt_mobile VARCHAR(20) DEFAULT NULL,
+                gender VARCHAR(20) DEFAULT NULL,
+                dob DATE DEFAULT NULL,
+                marital_status VARCHAR(30) DEFAULT NULL,
+                address TEXT,
+                city VARCHAR(100) DEFAULT NULL,
+                state_name VARCHAR(100) DEFAULT NULL,
+                pincode VARCHAR(12) DEFAULT NULL,
+                current_salary DECIMAL(12,2) DEFAULT NULL,
+                expected_salary DECIMAL(12,2) DEFAULT NULL,
+                notice_period VARCHAR(80) DEFAULT NULL,
+                total_experience VARCHAR(40) DEFAULT NULL,
+                bank_statement_file VARCHAR(255) DEFAULT NULL,
+                salary_slip_file VARCHAR(255) DEFAULT NULL,
+                resume_file VARCHAR(255) DEFAULT NULL,
+                status VARCHAR(30) NOT NULL DEFAULT 'new',
+                hr_remarks TEXT,
+                ip_address VARCHAR(64) DEFAULT NULL,
+                user_agent VARCHAR(255) DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_recruitment_app_no (application_no),
+                INDEX idx_recruitment_status (status),
+                INDEX idx_recruitment_dept (department_id),
+                INDEX idx_recruitment_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $conn->query(
+            "CREATE TABLE IF NOT EXISTS recruitment_education (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                application_id INT NOT NULL,
+                degree VARCHAR(150) NOT NULL DEFAULT '',
+                institution VARCHAR(200) NOT NULL DEFAULT '',
+                year_of_passing VARCHAR(20) DEFAULT NULL,
+                percentage VARCHAR(20) DEFAULT NULL,
+                specialization VARCHAR(150) DEFAULT NULL,
+                sort_order INT NOT NULL DEFAULT 0,
+                INDEX idx_rec_edu_app (application_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $conn->query(
+            "CREATE TABLE IF NOT EXISTS recruitment_experience (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                application_id INT NOT NULL,
+                company_name VARCHAR(200) NOT NULL DEFAULT '',
+                designation VARCHAR(150) NOT NULL DEFAULT '',
+                from_date VARCHAR(40) DEFAULT NULL,
+                to_date VARCHAR(40) DEFAULT NULL,
+                is_current TINYINT(1) NOT NULL DEFAULT 0,
+                last_salary DECIMAL(12,2) DEFAULT NULL,
+                responsibilities TEXT,
+                sort_order INT NOT NULL DEFAULT 0,
+                INDEX idx_rec_exp_app (application_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $conn->query(
+            "CREATE TABLE IF NOT EXISTS recruitment_descriptive_answers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                application_id INT NOT NULL,
+                question_no INT NOT NULL,
+                question_hi TEXT,
+                question_en TEXT,
+                answer TEXT,
+                sort_order INT NOT NULL DEFAULT 0,
+                UNIQUE KEY uq_rec_desc_app_q (application_id, question_no),
+                INDEX idx_rec_desc_app (application_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $conn->query(
+            "CREATE TABLE IF NOT EXISTS recruitment_followups (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                application_id INT NOT NULL,
+                call_no INT NOT NULL DEFAULT 1,
+                call_at DATETIME NOT NULL,
+                next_followup_at DATE DEFAULT NULL,
+                notes TEXT,
+                outcome VARCHAR(80) DEFAULT NULL,
+                created_by INT DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_rec_fu_app (application_id),
+                INDEX idx_rec_fu_next (next_followup_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $conn->query(
+            "CREATE TABLE IF NOT EXISTS recruitment_criteria (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                position_name VARCHAR(150) NOT NULL DEFAULT '',
+                criteria_label VARCHAR(500) NOT NULL,
+                answer_type VARCHAR(20) NOT NULL DEFAULT 'yesno',
+                sort_order INT NOT NULL DEFAULT 0,
+                status TINYINT(1) NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_rec_crit_pos (position_name),
+                INDEX idx_rec_crit_status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $conn->query(
+            "CREATE TABLE IF NOT EXISTS recruitment_application_marks (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                application_id INT NOT NULL,
+                criteria_id INT DEFAULT NULL,
+                criteria_label VARCHAR(500) NOT NULL DEFAULT '',
+                is_checked TINYINT(1) NOT NULL DEFAULT 0,
+                score_value INT DEFAULT NULL,
+                answer_value TEXT,
+                remarks TEXT,
+                updated_by INT DEFAULT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_rec_mark_app_label (application_id, criteria_label(191)),
+                INDEX idx_rec_mark_app (application_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        // Column upgrades for existing installs
+        $critCols = [
+            'answer_type' => "VARCHAR(20) NOT NULL DEFAULT 'yesno' AFTER criteria_label",
+        ];
+        foreach ($critCols as $col => $def) {
+            $chk = $conn->query("SHOW COLUMNS FROM recruitment_criteria LIKE '" . $conn->real_escape_string($col) . "'");
+            if ($chk && $chk->num_rows === 0) {
+                @$conn->query("ALTER TABLE recruitment_criteria ADD COLUMN {$col} {$def}");
+            }
+        }
+        $markCols = [
+            'score_value' => 'INT DEFAULT NULL AFTER is_checked',
+            'answer_value' => 'TEXT AFTER score_value',
+        ];
+        foreach ($markCols as $col => $def) {
+            $chk = $conn->query("SHOW COLUMNS FROM recruitment_application_marks LIKE '" . $conn->real_escape_string($col) . "'");
+            if ($chk && $chk->num_rows === 0) {
+                @$conn->query("ALTER TABLE recruitment_application_marks ADD COLUMN {$col} {$def}");
+            }
+        }
+        // Widen remarks if still VARCHAR
+        $rm = $conn->query("SHOW COLUMNS FROM recruitment_application_marks LIKE 'remarks'");
+        if ($rm && ($rr = $rm->fetch_assoc()) && stripos((string) ($rr['Type'] ?? ''), 'varchar') !== false) {
+            @$conn->query('ALTER TABLE recruitment_application_marks MODIFY remarks TEXT');
+        }
+        $cl = $conn->query("SHOW COLUMNS FROM recruitment_criteria LIKE 'criteria_label'");
+        if ($cl && ($cr = $cl->fetch_assoc()) && stripos((string) ($cr['Type'] ?? ''), 'varchar(200)') !== false) {
+            @$conn->query('ALTER TABLE recruitment_criteria MODIFY criteria_label VARCHAR(500) NOT NULL');
+        }
+
+        // Seed / refresh HR interview matrix (blank position = all positions)
+        recruitmentEnsureHrMatrixSeeded($conn);
+
+        $extraCols = [
+            'age_years' => "INT DEFAULT NULL AFTER dob",
+            'aadhaar_no' => "VARCHAR(20) DEFAULT NULL AFTER pincode",
+            'pan_no' => "VARCHAR(20) DEFAULT NULL AFTER aadhaar_no",
+            'bank_name' => "VARCHAR(150) DEFAULT NULL AFTER pan_no",
+            'bank_account' => "VARCHAR(40) DEFAULT NULL AFTER bank_name",
+            'bank_ifsc' => "VARCHAR(20) DEFAULT NULL AFTER bank_account",
+            'interview_mode' => "VARCHAR(40) DEFAULT NULL AFTER status",
+            'interview_date' => "DATE DEFAULT NULL AFTER interview_mode",
+            'interview_notes' => "TEXT AFTER interview_date",
+            'awaited_with' => "VARCHAR(40) DEFAULT NULL AFTER interview_notes",
+            'not_selected_reason' => "TEXT AFTER awaited_with",
+            'offer_generated_at' => "DATETIME DEFAULT NULL AFTER not_selected_reason",
+            'selected_at' => "DATETIME DEFAULT NULL AFTER offer_generated_at",
+            'next_followup_at' => "DATE DEFAULT NULL AFTER selected_at",
+            'last_call_at' => "DATETIME DEFAULT NULL AFTER next_followup_at",
+            'call_count' => "INT NOT NULL DEFAULT 0 AFTER last_call_at",
+            'employee_id' => "INT DEFAULT NULL AFTER call_count",
+            'offer_letter_no' => "VARCHAR(40) DEFAULT NULL AFTER employee_id",
+            'offer_letter_date' => "DATE DEFAULT NULL AFTER offer_letter_no",
+            'duty_status' => "VARCHAR(30) NOT NULL DEFAULT 'pending' AFTER offer_letter_date",
+            'duty_marked_at' => "DATETIME DEFAULT NULL AFTER duty_status",
+            'duty_remarks' => "TEXT AFTER duty_marked_at",
+            'proposed_employee_code' => "VARCHAR(40) DEFAULT NULL AFTER duty_remarks",
+            'joining_date' => "DATE DEFAULT NULL AFTER proposed_employee_code",
+            'biometric_done' => "TINYINT(1) NOT NULL DEFAULT 0 AFTER joining_date",
+            'appointment_letter_no' => "VARCHAR(40) DEFAULT NULL AFTER biometric_done",
+            'appointment_letter_date' => "DATE DEFAULT NULL AFTER appointment_letter_no",
+            'appointment_generated_at' => "DATETIME DEFAULT NULL AFTER appointment_letter_date",
+            'offer_department' => "VARCHAR(150) DEFAULT NULL AFTER appointment_generated_at",
+            'offer_post' => "VARCHAR(150) DEFAULT NULL AFTER offer_department",
+        ];
+        foreach ($extraCols as $col => $def) {
+            $chk = $conn->query("SHOW COLUMNS FROM recruitment_applications LIKE '" . $conn->real_escape_string($col) . "'");
+            if ($chk && $chk->num_rows === 0) {
+                $conn->query("ALTER TABLE recruitment_applications ADD COLUMN {$col} {$def}");
+            }
+        }
+
+        $conn->query(
+            "CREATE TABLE IF NOT EXISTS recruitment_doc_series (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                doc_type VARCHAR(30) NOT NULL,
+                series_year INT NOT NULL,
+                last_no INT NOT NULL DEFAULT 0,
+                UNIQUE KEY uq_rec_doc_series (doc_type, series_year)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        // Normalize legacy statuses toward interview flow
+        $conn->query("UPDATE recruitment_applications SET status = 'interview' WHERE status IN ('review','shortlisted')");
+        $conn->query("UPDATE recruitment_applications SET status = 'not_selected' WHERE status = 'rejected'");
+        $conn->query("UPDATE recruitment_applications SET status = 'selected' WHERE status = 'hired'");
+
+        if ($close) {
+            $conn->close();
+        }
+    }
+
+    function recruitmentSqlStr($conn, $value)
+    {
+        if ($value === null) {
+            return 'NULL';
+        }
+        return "'" . $conn->real_escape_string((string) $value) . "'";
+    }
+
+    function recruitmentSqlNum($value)
+    {
+        if ($value === null || $value === '') {
+            return 'NULL';
+        }
+        return (string) (float) $value;
+    }
+
+    function recruitmentSqlIntOrNull($value)
+    {
+        $value = (int) $value;
+        return $value > 0 ? (string) $value : 'NULL';
+    }
+
+    function recruitmentApplyUrl()
+    {
+        $path = 'recruitment/apply.php';
+
+        // Optional override in .env: RECRUITMENT_PUBLIC_URL=https://<your-hrms-domain>/recruitment/apply.php
+        $override = trim((string) (function_exists('env') ? env('RECRUITMENT_PUBLIC_URL', '') : ''));
+        if ($override !== '') {
+            return rtrim($override, '/');
+        }
+
+        $liveBase = rtrim(trim((string) (function_exists('env') ? env('PUBLIC_APP_URL', '') : '')), '/');
+        $appUrl = defined('APP_URL') ? rtrim((string) APP_URL, '/') : '';
+        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        $isLocalHost = (
+            strpos($host, 'localhost') !== false
+            || strpos($host, '127.0.0.1') !== false
+            || $appUrl === ''
+            || stripos($appUrl, 'localhost') !== false
+            || stripos($appUrl, '127.0.0.1') !== false
+        );
+
+        // Fixed QR for phones must use live public URL (not localhost)
+        if ($isLocalHost && $liveBase !== '') {
+            return $liveBase . '/' . $path;
+        }
+
+        if ($appUrl !== '') {
+            return $appUrl . '/' . $path;
+        }
+
+        return app_full_url($path);
+    }
+
+    /**
+     * Reasoning / descriptive questions (Hindi + English) for apply form.
+     * Keys keep published question numbers (15 intentionally omitted).
+     *
+     * @return array<int, array{hi:string,en:string}>
+     */
+    function recruitmentDescriptiveQuestions()
+    {
+        return [
+            1 => [
+                'hi' => 'अपना इंट्रोडक्शन दीजिए, जिसमें आपकी एजुकेशन, आपके अनुभव की जानकारी और फैमिली डिटेल दीजिए।',
+                'en' => 'Give your introduction, including your education, details of your experience, and family details.',
+            ],
+            2 => [
+                'hi' => 'आप सेल्स फील्ड में कितने समय से हैं?',
+                'en' => 'How long have you been in the sales field?',
+            ],
+            3 => [
+                'hi' => 'आप सेल्स फील्ड क्यों पसंद करते हैं, यह बताइए।',
+                'en' => 'Please explain why you prefer the sales field.',
+            ],
+            4 => [
+                'hi' => 'आप अपने शौक के बारे में कुछ बताएँगे?',
+                'en' => 'Please tell us something about your hobbies?',
+            ],
+            5 => [
+                'hi' => 'सेल्स फील्ड के अंदर आते हुए हार्डकोर फेस करने के लिए आप किस प्रकार की स्किल का उपयोग करते थे और उस सिचुएशन को आप किस तरह हैंडल करते थे?',
+                'en' => 'While working in the sales field, what type of skills did you use to face difficult situations, and how did you handle those situations?',
+            ],
+            6 => [
+                'hi' => 'कोई भी सेल्स को क्लोजिंग करने के लिए मिनिमम आपको कितनी विजिट करनी पड़ती थी और मिनिमम विजिट कम्प्लीट करने में कितने दिन लगते थे?',
+                'en' => 'To close any sales, what was the minimum number of visits you had to make, and how many days did it take to complete the minimum visits?',
+            ],
+            7 => [
+                'hi' => 'पिछली कंपनी में नौकरी करते हुए उसमें क्या प्रोडक्ट रेंज थी?',
+                'en' => 'What was the product range in the previous company where you worked?',
+            ],
+            8 => [
+                'hi' => 'तमाम प्रोडक्ट रेंज को सेल करने के लिए आप कौन-सी स्ट्रेटेजी अपनाते थे?',
+                'en' => 'What strategy did you use to sell the entire product range?',
+            ],
+            9 => [
+                'hi' => 'एक्सेल स्प्रेडशीट की लाइन में टाइम मैनेजमेंट का क्या महत्व हो सकता है, उसके बारे में आप कुछ बताएँगे?',
+                'en' => 'What importance can time management have in the Sales person line? Please explain.',
+            ],
+            10 => [
+                'hi' => 'पिछली कंपनियों में आपको क्या टारगेट दिए जाते थे और उसमें आपका अचीवमेंट क्या था, उसके बारे में हमें बताइए।',
+                'en' => 'What targets were given to you in your previous companies, and what was your achievement against those targets? Please explain.',
+            ],
+            11 => [
+                'hi' => 'कोई भी सेल्स फाइनल नहीं हो तो उसके लिए आप क्या करते हो? डी-मोटिवेट हो जाते हो तो उस समय आप क्या करते हो?',
+                'en' => 'If any sales does not get finalized, what do you do? If you become demotivated, what do you do at that time?',
+            ],
+            12 => [
+                'hi' => 'किसी कस्टमर से बिजनेस आने में कितना समय लगता है और उसे मैनेज करने में कितना समय लगेगा?',
+                'en' => 'How much time does it take to get business from a customer, and how much time does it take to manage it?',
+            ],
+            13 => [
+                'hi' => 'यदि कोई कस्टमर की शिकायत आए तो आप किस तरह हैंडल करते हो?',
+                'en' => 'If any customer complaint comes, how do you handle it?',
+            ],
+            14 => [
+                'hi' => 'क्या आपने कभी टीम के साथ काम किया है? आपकी टीम में कितने सदस्य थे और आप किस तरह टीम के साथ कोऑर्डिनेट करते थे?',
+                'en' => 'Have you ever worked with a team? How many members were there in your team, and how did you coordinate with the team?',
+            ],
+            16 => [
+                'hi' => 'आप Sales Field में कौन-कौन सी चुनौतियाँ स्वीकार करना चाहेंगे? कृपया 5 चुनौतियाँ बताइए।',
+                'en' => 'Which challenges would you like to accept in the Sales Field? Please tell me 5 challenges.',
+            ],
+            17 => [
+                'hi' => 'आप किसी चुनौतीपूर्ण परिस्थिति का सामना कैसे करेंगे? एक उदाहरण दीजिए।',
+                'en' => 'How do you overcome a challenging situation? Give an example.',
+            ],
+            18 => [
+                'hi' => 'यदि आपको किसी ग्राहक से Appointment नहीं मिलता है, तो आप क्या करेंगे?',
+                'en' => 'What will you do if you do not get an appointment with a customer?',
+            ],
+        ];
+    }
+
+    function recruitmentSaveDescriptiveAnswers($applicationId, array $answers, $conn = null)
+    {
+        $applicationId = (int) $applicationId;
+        if ($applicationId <= 0) {
+            return false;
+        }
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $questions = recruitmentDescriptiveQuestions();
+        $conn->query('DELETE FROM recruitment_descriptive_answers WHERE application_id = ' . $applicationId);
+        $sort = 0;
+        foreach ($questions as $qNo => $q) {
+            $ans = trim((string) ($answers[(int) $qNo] ?? $answers[(string) $qNo] ?? ''));
+            $conn->query(
+                'INSERT INTO recruitment_descriptive_answers
+                 (application_id, question_no, question_hi, question_en, answer, sort_order)
+                 VALUES (' .
+                    $applicationId . ',' .
+                    (int) $qNo . ',' .
+                    recruitmentSqlStr($conn, $q['hi'] ?? '') . ',' .
+                    recruitmentSqlStr($conn, $q['en'] ?? '') . ',' .
+                    recruitmentSqlStr($conn, $ans) . ',' .
+                    (int) $sort .
+                ')'
+            );
+            $sort++;
+        }
+        if ($close) {
+            $conn->close();
+        }
+        return true;
+    }
+
+    function recruitmentDescriptiveAnswers($applicationId, $conn = null)
+    {
+        $applicationId = (int) $applicationId;
+        if ($applicationId <= 0) {
+            return [];
+        }
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $rows = [];
+        $st = $conn->prepare(
+            'SELECT question_no, question_hi, question_en, answer, sort_order
+             FROM recruitment_descriptive_answers
+             WHERE application_id = ?
+             ORDER BY sort_order ASC, question_no ASC'
+        );
+        $st->bind_param('i', $applicationId);
+        $st->execute();
+        $res = $st->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $rows[] = $r;
+        }
+        $st->close();
+        if ($close) {
+            $conn->close();
+        }
+        return $rows;
+    }
+
+    function recruitmentUploadDir()
+    {
+        return dirname(__DIR__) . '/assets/uploads/recruitment';
+    }
+
+    function recruitmentPublicPath($relative)
+    {
+        $relative = trim((string) $relative);
+        if ($relative === '' || strpos($relative, 'assets/uploads/recruitment/') !== 0 || strpos($relative, '..') !== false) {
+            return '';
+        }
+        return app_url($relative);
+    }
+
+    function recruitmentGenerateAppNo($conn)
+    {
+        $prefix = 'REC-' . date('Ymd') . '-';
+        $like = $prefix . '%';
+        $st = $conn->prepare(
+            'SELECT application_no FROM recruitment_applications
+             WHERE application_no LIKE ?
+             ORDER BY id DESC LIMIT 1'
+        );
+        $st->bind_param('s', $like);
+        $st->execute();
+        $row = $st->get_result()->fetch_assoc();
+        $st->close();
+        $next = 1;
+        if ($row && preg_match('/-(\d+)$/', (string) $row['application_no'], $m)) {
+            $next = (int) $m[1] + 1;
+        }
+        return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+    }
+
+    function recruitmentUploadFile($fileKey, $prefix = 'doc')
+    {
+        if (empty($_FILES[$fileKey]) || !is_array($_FILES[$fileKey])) {
+            return ['ok' => true, 'path' => ''];
+        }
+        $file = $_FILES[$fileKey];
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return ['ok' => true, 'path' => ''];
+        }
+        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            return ['ok' => false, 'error' => 'Upload failed. Please try again.'];
+        }
+        $size = (int) ($file['size'] ?? 0);
+        if ($size <= 0 || $size > 5 * 1024 * 1024) {
+            return ['ok' => false, 'error' => 'Each file must be under 5 MB.'];
+        }
+        $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+        $allowed = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+        if (!in_array($ext, $allowed, true)) {
+            return ['ok' => false, 'error' => 'Allowed file types: PDF, JPG, PNG, WEBP.'];
+        }
+        $dir = recruitmentUploadDir();
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            return ['ok' => false, 'error' => 'Could not create upload folder.'];
+        }
+        $safe = preg_replace('/[^a-zA-Z0-9_-]/', '', $prefix)
+            . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $dest = $dir . DIRECTORY_SEPARATOR . $safe;
+        if (!move_uploaded_file($file['tmp_name'], $dest)) {
+            return ['ok' => false, 'error' => 'Could not save uploaded file.'];
+        }
+        return ['ok' => true, 'path' => 'assets/uploads/recruitment/' . $safe];
+    }
+
+    function recruitmentFormatExperienceMonths($months)
+    {
+        $months = max(0, (int) $months);
+        if ($months <= 0) {
+            return '';
+        }
+        $y = intdiv($months, 12);
+        $m = $months % 12;
+        $parts = [];
+        if ($y > 0) {
+            $parts[] = $y . ($y === 1 ? ' year' : ' years');
+        }
+        if ($m > 0) {
+            $parts[] = $m . ($m === 1 ? ' month' : ' months');
+        }
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Sum company-wise From/To (YYYY-MM). Current job uses today's month.
+     */
+    function recruitmentCalculateTotalExperience(array $experience)
+    {
+        $total = 0;
+        $nowYm = date('Y-m');
+        foreach ($experience as $ex) {
+            $from = trim((string) ($ex['from_date'] ?? ''));
+            $to = trim((string) ($ex['to_date'] ?? ''));
+            if (!empty($ex['is_current'])) {
+                $to = $nowYm;
+            }
+            if (!preg_match('/^\d{4}-\d{2}$/', $from) || !preg_match('/^\d{4}-\d{2}$/', $to)) {
+                continue;
+            }
+            [$fy, $fm] = array_map('intval', explode('-', $from));
+            [$ty, $tm] = array_map('intval', explode('-', $to));
+            $diff = ($ty - $fy) * 12 + ($tm - $fm);
+            if ($diff < 0) {
+                continue;
+            }
+            $total += ($diff === 0 ? 1 : $diff);
+        }
+        return recruitmentFormatExperienceMonths($total);
+    }
+
+    function recruitmentStatusLabels()
+    {
+        return [
+            'new' => 'New Application',
+            'interview' => 'Interview',
+            'awaited' => 'Awaited',
+            'selected' => 'Selected',
+            'not_selected' => 'Not Selected',
+            // legacy aliases (display only if old rows remain)
+            'review' => 'Interview',
+            'shortlisted' => 'Awaited',
+            'rejected' => 'Not Selected',
+            'hired' => 'Selected',
+        ];
+    }
+
+    function recruitmentInterviewModes()
+    {
+        return [
+            'in_house' => 'In-house',
+            'in_person' => 'In-person',
+            'virtual' => 'Virtual',
+        ];
+    }
+
+    function recruitmentAwaitedSides()
+    {
+        return [
+            'hr' => 'HR',
+            'management' => 'Management',
+            'employee' => 'Employee side',
+        ];
+    }
+
+    /**
+     * HR Round interview matrix (reference checklist).
+     * type: yesno | score | text
+     */
+    function recruitmentDefaultHrCriteria()
+    {
+        return [
+            ['label' => 'Candidate behavior proper during interview?', 'type' => 'yesno'],
+            ['label' => 'English communication skill (out of 10)', 'type' => 'score'],
+            ['label' => 'Candidate has worked anywhere as team member / leader previously (social / college / any company)?', 'type' => 'yesno'],
+            ['label' => 'Candidate has made new initiate / innovation / change into previous / current company, which is beneficial to him / her / company?', 'type' => 'text'],
+            ['label' => 'What is important when candidate doing work — work or money?', 'type' => 'text'],
+            ['label' => 'Any self-learning done last 1 month?', 'type' => 'yesno'],
+            ['label' => 'Candidate has deep learning habits?', 'type' => 'yesno'],
+            ['label' => 'What is important from fundamental / framework for candidate? (Yes = fundamental)', 'type' => 'yesno'],
+            ['label' => 'Is candidate 5 years personal / professional goals defined?', 'type' => 'yesno'],
+            ['label' => 'Why candidate planning to work in Rajkot / Ahmedabad?', 'type' => 'text'],
+            ['label' => 'What family member (father, mother, brother, sister) background of candidate?', 'type' => 'text'],
+            ['label' => 'Do candidate / family member has any health issue (admitted into hospital in last 3 years)?', 'type' => 'text'],
+            ['label' => 'Candidate from outside city — how do they manage office / family life?', 'type' => 'text'],
+            ['label' => 'Candidate want to looking for master degree?', 'type' => 'yesno'],
+            ['label' => 'Candidate want to looking for government job?', 'type' => 'yesno'],
+            ['label' => 'Candidate want to move into foreign in future?', 'type' => 'yesno'],
+            ['label' => 'If married female candidate — any short term family planning?', 'type' => 'text'],
+            ['label' => 'If unmarried female candidate — when plan for marriage? If short term plan then Rajkot or other city?', 'type' => 'text'],
+            ['label' => 'Is candidate doing study / internal then want to appear into campus interview?', 'type' => 'yesno'],
+            ['label' => 'What is candidate strength?', 'type' => 'text'],
+            ['label' => 'What is candidate weakness?', 'type' => 'text'],
+            ['label' => 'Why we hire you?', 'type' => 'text'],
+            ['label' => 'Any reference received for interview / how appear into company?', 'type' => 'text'],
+            ['label' => 'Reason to Change', 'type' => 'text'],
+        ];
+    }
+
+    /**
+     * Ensure global HR matrix is seeded. Replaces old short checklist once.
+     */
+    function recruitmentEnsureHrMatrixSeeded($conn)
+    {
+        $hasMatrix = false;
+        $st = @$conn->query("SELECT id FROM recruitment_criteria WHERE position_name = '' AND criteria_label LIKE 'Reason to Change%' LIMIT 1");
+        if ($st && $st->num_rows > 0) {
+            $hasMatrix = true;
+        }
+        if ($hasMatrix) {
+            // Keep answer_type in sync for existing matrix rows
+            foreach (recruitmentDefaultHrCriteria() as $item) {
+                $label = $item['label'];
+                $type = $item['type'];
+                $up = $conn->prepare(
+                    "UPDATE recruitment_criteria SET answer_type = ? WHERE position_name = '' AND criteria_label = ?"
+                );
+                if ($up) {
+                    $up->bind_param('ss', $type, $label);
+                    $up->execute();
+                    $up->close();
+                }
+            }
+            return;
+        }
+
+        // Remove old global seed (Confidence / Communication Skills checklist)
+        $conn->query("DELETE FROM recruitment_criteria WHERE position_name = ''");
+
+        $ins = $conn->prepare(
+            'INSERT INTO recruitment_criteria (position_name, criteria_label, answer_type, sort_order, status) VALUES (\'\', ?, ?, ?, 1)'
+        );
+        if (!$ins) {
+            return;
+        }
+        $ord = 1;
+        foreach (recruitmentDefaultHrCriteria() as $item) {
+            $label = $item['label'];
+            $type = $item['type'];
+            $ins->bind_param('ssi', $label, $type, $ord);
+            $ins->execute();
+            $ord++;
+        }
+        $ins->close();
+    }
+
+    /**
+     * Criteria for a position: global (blank) + matching position_name.
+     */
+    function getRecruitmentCriteriaForPosition($positionName, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $positionName = trim((string) $positionName);
+        $rows = [];
+        $st = $conn->prepare(
+            "SELECT * FROM recruitment_criteria
+             WHERE status = 1 AND (position_name = '' OR position_name = ?)
+             ORDER BY (position_name = '') DESC, sort_order ASC, id ASC"
+        );
+        $st->bind_param('s', $positionName);
+        $st->execute();
+        $res = $st->get_result();
+        while ($r = $res->fetch_assoc()) {
+            if (empty($r['answer_type'])) {
+                $r['answer_type'] = 'yesno';
+            }
+            $rows[] = $r;
+        }
+        $st->close();
+        if ($close) {
+            $conn->close();
+        }
+        return $rows;
+    }
+
+    function getRecruitmentApplicationMarks($applicationId, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $applicationId = (int) $applicationId;
+        $map = [];
+        $st = $conn->prepare(
+            'SELECT * FROM recruitment_application_marks WHERE application_id = ?'
+        );
+        $st->bind_param('i', $applicationId);
+        $st->execute();
+        $res = $st->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $key = strtolower(trim((string) $r['criteria_label']));
+            $map[$key] = $r;
+        }
+        $st->close();
+        if ($close) {
+            $conn->close();
+        }
+        return $map;
+    }
+
+    /**
+     * Save marks. $items = [ label, criteria_id, type, checked, score, answer, remarks ]
+     */
+    function saveRecruitmentApplicationMarks($applicationId, array $items, $userId = 0, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $applicationId = (int) $applicationId;
+        $userId = (int) $userId;
+
+        foreach ($items as $item) {
+            $label = trim((string) ($item['label'] ?? ''));
+            if ($label === '') {
+                continue;
+            }
+            $type = trim((string) ($item['type'] ?? 'yesno'));
+            $criteriaId = (int) ($item['criteria_id'] ?? 0);
+            $remarks = trim((string) ($item['remarks'] ?? ''));
+            $answer = trim((string) ($item['answer'] ?? ''));
+            $score = isset($item['score']) && $item['score'] !== '' ? (int) $item['score'] : null;
+            $checked = 0;
+
+            if ($type === 'yesno') {
+                if ($answer === 'Yes' || $answer === '1' || !empty($item['checked'])) {
+                    $checked = 1;
+                    $answer = 'Yes';
+                } elseif ($answer === 'No' || (isset($item['checked']) && $item['checked'] === '0')) {
+                    $checked = 0;
+                    $answer = 'No';
+                } elseif ($answer === '') {
+                    // leave unanswered
+                }
+            } elseif ($type === 'score') {
+                if ($score !== null) {
+                    $answer = (string) $score;
+                    $checked = $score > 0 ? 1 : 0;
+                }
+            } else {
+                // text
+                if ($answer === '' && $remarks !== '') {
+                    $answer = $remarks;
+                }
+                $checked = $answer !== '' ? 1 : 0;
+            }
+
+            $scoreSql = ($score !== null) ? (string) (int) $score : 'NULL';
+            $sql = 'INSERT INTO recruitment_application_marks
+                (application_id, criteria_id, criteria_label, is_checked, score_value, answer_value, remarks, updated_by)
+                VALUES (' .
+                $applicationId . ',' .
+                ($criteriaId > 0 ? $criteriaId : 'NULL') . ',' .
+                recruitmentSqlStr($conn, $label) . ',' .
+                $checked . ',' .
+                $scoreSql . ',' .
+                recruitmentSqlStr($conn, $answer) . ',' .
+                recruitmentSqlStr($conn, $remarks) . ',' .
+                ($userId > 0 ? $userId : 'NULL') .
+            ') ON DUPLICATE KEY UPDATE
+                is_checked = VALUES(is_checked),
+                score_value = VALUES(score_value),
+                answer_value = VALUES(answer_value),
+                remarks = VALUES(remarks),
+                criteria_id = VALUES(criteria_id),
+                updated_by = VALUES(updated_by)';
+            $conn->query($sql);
+        }
+
+        if ($close) {
+            $conn->close();
+        }
+        return ['ok' => true];
+    }
+
+    /**
+     * Add a custom / position criteria row.
+     */
+    function addRecruitmentCriteria($positionName, $label, $conn = null, $answerType = 'yesno')
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $positionName = trim((string) $positionName);
+        $label = trim((string) $label);
+        $answerType = in_array($answerType, ['yesno', 'score', 'text'], true) ? $answerType : 'yesno';
+        if ($label === '') {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Criteria label required'];
+        }
+        $st = $conn->prepare(
+            'SELECT id FROM recruitment_criteria WHERE position_name = ? AND criteria_label = ? LIMIT 1'
+        );
+        $st->bind_param('ss', $positionName, $label);
+        $st->execute();
+        $ex = $st->get_result()->fetch_assoc();
+        $st->close();
+        if ($ex) {
+            $id = (int) $ex['id'];
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => true, 'id' => $id, 'exists' => true];
+        }
+        $ord = 100;
+        $mx = $conn->query('SELECT COALESCE(MAX(sort_order),0) AS m FROM recruitment_criteria')->fetch_assoc();
+        $ord = (int) ($mx['m'] ?? 0) + 1;
+        $ins = $conn->prepare(
+            'INSERT INTO recruitment_criteria (position_name, criteria_label, answer_type, sort_order, status) VALUES (?, ?, ?, ?, 1)'
+        );
+        $ins->bind_param('sssi', $positionName, $label, $answerType, $ord);
+        $ok = $ins->execute();
+        $id = (int) $ins->insert_id;
+        $err = $ins->error;
+        $ins->close();
+        if ($close) {
+            $conn->close();
+        }
+        return $ok ? ['ok' => true, 'id' => $id] : ['ok' => false, 'error' => $err];
+    }
+
+    function recruitmentFormatMarkAnswer(array $mark, $type = 'yesno')
+    {
+        $type = $type ?: 'yesno';
+        $answer = trim((string) ($mark['answer_value'] ?? ''));
+        if ($type === 'score') {
+            if ($answer !== '') {
+                return $answer . ' / 10';
+            }
+            if (isset($mark['score_value']) && $mark['score_value'] !== null && $mark['score_value'] !== '') {
+                return ((int) $mark['score_value']) . ' / 10';
+            }
+            return '—';
+        }
+        if ($type === 'yesno') {
+            if ($answer === 'Yes' || $answer === 'No') {
+                return $answer;
+            }
+            if ($answer === '' && array_key_exists('is_checked', $mark)) {
+                // legacy checkbox-only rows without explicit No
+                return !empty($mark['is_checked']) ? 'Yes' : '—';
+            }
+            return $answer !== '' ? $answer : '—';
+        }
+        if ($answer !== '') {
+            return $answer;
+        }
+        $remarks = trim((string) ($mark['remarks'] ?? ''));
+        return $remarks !== '' ? $remarks : '—';
+    }
+
+    function recruitmentCalcAgeYears($dob)
+    {
+        $dob = trim((string) $dob);
+        if ($dob === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
+            return null;
+        }
+        try {
+            $birth = new DateTime($dob);
+            $now = new DateTime('today');
+            if ($birth > $now) {
+                return null;
+            }
+            return (int) $birth->diff($now)->y;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    function recruitmentFollowups($applicationId, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $applicationId = (int) $applicationId;
+        $rows = [];
+        $st = $conn->prepare(
+            'SELECT * FROM recruitment_followups WHERE application_id = ? ORDER BY call_no ASC, id ASC'
+        );
+        $st->bind_param('i', $applicationId);
+        $st->execute();
+        $res = $st->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $rows[] = $r;
+        }
+        $st->close();
+        if ($close) {
+            $conn->close();
+        }
+        return $rows;
+    }
+
+    function recruitmentIsFollowupDue(array $row)
+    {
+        if (($row['status'] ?? '') !== 'awaited') {
+            return false;
+        }
+        $next = trim((string) ($row['next_followup_at'] ?? ''));
+        if ($next === '') {
+            return false;
+        }
+        return $next <= date('Y-m-d');
+    }
+
+    function saveRecruitmentInterviewUpdate($id, array $data, $userId = 0, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $id = (int) $id;
+        $status = trim((string) ($data['status'] ?? 'interview'));
+        $allowed = ['new', 'interview', 'awaited', 'selected', 'not_selected'];
+        if (!in_array($status, $allowed, true)) {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Invalid status'];
+        }
+
+        $mode = trim((string) ($data['interview_mode'] ?? ''));
+        $interviewDate = trim((string) ($data['interview_date'] ?? ''));
+        $offerDepartment = trim((string) ($data['offer_department'] ?? ''));
+        $offerPost = trim((string) ($data['offer_post'] ?? ''));
+        $awaitedWith = trim((string) ($data['awaited_with'] ?? ''));
+        $notReason = trim((string) ($data['not_selected_reason'] ?? ''));
+        $hrRemarks = trim((string) ($data['hr_remarks'] ?? ''));
+
+        if ($status === 'not_selected' && $notReason === '') {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Please enter reason for Not Selected.'];
+        }
+        if ($status === 'awaited' && $awaitedWith === '') {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Please select Awaited with (HR / Management / Employee).'];
+        }
+
+        $sets = [
+            'status = ' . recruitmentSqlStr($conn, $status),
+            'interview_mode = ' . recruitmentSqlStr($conn, $mode),
+            'interview_date = ' . ($interviewDate !== '' ? recruitmentSqlStr($conn, $interviewDate) : 'NULL'),
+            'offer_department = ' . recruitmentSqlStr($conn, $offerDepartment),
+            'offer_post = ' . recruitmentSqlStr($conn, $offerPost),
+            'awaited_with = ' . recruitmentSqlStr($conn, $awaitedWith),
+            'not_selected_reason = ' . recruitmentSqlStr($conn, $notReason),
+            'hr_remarks = ' . recruitmentSqlStr($conn, $hrRemarks),
+        ];
+
+        if ($status === 'awaited') {
+            // Default 6-day reminder from today if not already set / refresh on status change
+            $sets[] = 'next_followup_at = DATE_ADD(CURDATE(), INTERVAL 6 DAY)';
+        }
+        if ($status === 'selected') {
+            $sets[] = 'selected_at = IFNULL(selected_at, NOW())';
+            $sets[] = 'awaited_with = NULL';
+            $sets[] = 'not_selected_reason = ' . recruitmentSqlStr($conn, '');
+        }
+        if ($status === 'not_selected') {
+            $sets[] = 'awaited_with = NULL';
+            $sets[] = 'next_followup_at = NULL';
+        }
+
+        $ok = $conn->query(
+            'UPDATE recruitment_applications SET ' . implode(', ', $sets) . ' WHERE id = ' . $id
+        );
+        $err = $ok ? '' : $conn->error;
+        if ($close) {
+            $conn->close();
+        }
+        return $ok ? ['ok' => true] : ['ok' => false, 'error' => $err ?: 'Update failed'];
+    }
+
+    function saveRecruitmentFollowup($applicationId, array $data, $userId = 0, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $applicationId = (int) $applicationId;
+        $notes = trim((string) ($data['notes'] ?? ''));
+        $outcome = trim((string) ($data['outcome'] ?? ''));
+        $callAt = trim((string) ($data['call_at'] ?? ''));
+        if ($callAt === '') {
+            $callAt = date('Y-m-d H:i:s');
+        } elseif (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/', $callAt)) {
+            $callAt = str_replace('T', ' ', substr($callAt, 0, 16)) . ':00';
+        }
+        $next = trim((string) ($data['next_followup_at'] ?? ''));
+        if ($next === '') {
+            $next = date('Y-m-d', strtotime('+6 days'));
+        }
+
+        $st = $conn->prepare('SELECT COALESCE(MAX(call_no), 0) AS m FROM recruitment_followups WHERE application_id = ?');
+        $st->bind_param('i', $applicationId);
+        $st->execute();
+        $callNo = (int) ($st->get_result()->fetch_assoc()['m'] ?? 0) + 1;
+        $st->close();
+
+        $userId = (int) $userId;
+        $sql = 'INSERT INTO recruitment_followups
+            (application_id, call_no, call_at, next_followup_at, notes, outcome, created_by)
+            VALUES (' .
+            $applicationId . ',' .
+            $callNo . ',' .
+            recruitmentSqlStr($conn, $callAt) . ',' .
+            recruitmentSqlStr($conn, $next) . ',' .
+            recruitmentSqlStr($conn, $notes) . ',' .
+            recruitmentSqlStr($conn, $outcome) . ',' .
+            ($userId > 0 ? $userId : 'NULL') .
+        ')';
+        if (!$conn->query($sql)) {
+            $err = $conn->error;
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => $err ?: 'Could not save follow-up'];
+        }
+
+        $conn->query(
+            'UPDATE recruitment_applications SET
+                last_call_at = ' . recruitmentSqlStr($conn, $callAt) . ',
+                next_followup_at = ' . recruitmentSqlStr($conn, $next) . ',
+                call_count = ' . (int) $callNo . '
+             WHERE id = ' . $applicationId
+        );
+
+        if ($close) {
+            $conn->close();
+        }
+        return ['ok' => true, 'call_no' => $callNo];
+    }
+
+    function getRecruitmentApplication($id, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $id = (int) $id;
+        $st = $conn->prepare('SELECT * FROM recruitment_applications WHERE id = ? LIMIT 1');
+        $st->bind_param('i', $id);
+        $st->execute();
+        $row = $st->get_result()->fetch_assoc();
+        $st->close();
+        if (!$row) {
+            if ($close) {
+                $conn->close();
+            }
+            return null;
+        }
+
+        $edu = [];
+        $st = $conn->prepare(
+            'SELECT * FROM recruitment_education WHERE application_id = ? ORDER BY sort_order ASC, id ASC'
+        );
+        $st->bind_param('i', $id);
+        $st->execute();
+        $res = $st->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $edu[] = $r;
+        }
+        $st->close();
+
+        $exp = [];
+        $st = $conn->prepare(
+            'SELECT * FROM recruitment_experience WHERE application_id = ? ORDER BY sort_order ASC, id ASC'
+        );
+        $st->bind_param('i', $id);
+        $st->execute();
+        $res = $st->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $exp[] = $r;
+        }
+        $st->close();
+
+        $row['education'] = $edu;
+        $row['experience'] = $exp;
+        $row['descriptive'] = recruitmentDescriptiveAnswers($id, $conn);
+        $row['followups'] = recruitmentFollowups($id, $conn);
+        if (empty($row['age_years']) && !empty($row['dob'])) {
+            $row['age_years'] = recruitmentCalcAgeYears($row['dob']);
+        }
+        if ($close) {
+            $conn->close();
+        }
+        return $row;
+    }
+
+    function saveRecruitmentApplication(array $data, array $education, array $experience, array $descriptive = [], $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $appNo = recruitmentGenerateAppNo($conn);
+
+        $sql = 'INSERT INTO recruitment_applications (
+            application_no, department_id, designation_id, department_name, position_name,
+            full_name, email, mobile, alt_mobile, gender, dob, age_years, marital_status,
+            address, city, state_name, pincode,
+            aadhaar_no, pan_no, bank_name, bank_account, bank_ifsc,
+            current_salary, expected_salary, notice_period, total_experience,
+            bank_statement_file, salary_slip_file, resume_file,
+            status, ip_address, user_agent
+        ) VALUES (' .
+            recruitmentSqlStr($conn, $appNo) . ',' .
+            recruitmentSqlIntOrNull($data['department_id'] ?? 0) . ',' .
+            recruitmentSqlIntOrNull($data['designation_id'] ?? 0) . ',' .
+            recruitmentSqlStr($conn, $data['department_name'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['position_name'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['full_name'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['email'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['mobile'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['alt_mobile'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['gender'] ?? '') . ',' .
+            (!empty($data['dob']) ? recruitmentSqlStr($conn, $data['dob']) : 'NULL') . ',' .
+            (isset($data['age_years']) && $data['age_years'] !== null && $data['age_years'] !== ''
+                ? (string) (int) $data['age_years'] : 'NULL') . ',' .
+            recruitmentSqlStr($conn, $data['marital_status'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['address'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['city'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['state_name'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['pincode'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['aadhaar_no'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['pan_no'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['bank_name'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['bank_account'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['bank_ifsc'] ?? '') . ',' .
+            recruitmentSqlNum($data['current_salary'] ?? null) . ',' .
+            recruitmentSqlNum($data['expected_salary'] ?? null) . ',' .
+            recruitmentSqlStr($conn, $data['notice_period'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['total_experience'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['bank_statement_file'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['salary_slip_file'] ?? '') . ',' .
+            recruitmentSqlStr($conn, $data['resume_file'] ?? '') . ',' .
+            recruitmentSqlStr($conn, 'new') . ',' .
+            recruitmentSqlStr($conn, $data['ip_address'] ?? '') . ',' .
+            recruitmentSqlStr($conn, substr((string) ($data['user_agent'] ?? ''), 0, 255)) .
+        ')';
+
+        if (!$conn->query($sql)) {
+            $err = $conn->error;
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => $err ?: 'Could not save application.'];
+        }
+
+        $appId = (int) $conn->insert_id;
+        $i = 0;
+        foreach ($education as $ed) {
+            $degree = trim((string) ($ed['degree'] ?? ''));
+            $inst = trim((string) ($ed['institution'] ?? ''));
+            if ($degree === '' && $inst === '') {
+                continue;
+            }
+            $conn->query(
+                'INSERT INTO recruitment_education
+                 (application_id, degree, institution, year_of_passing, percentage, specialization, sort_order)
+                 VALUES (' .
+                    (int) $appId . ',' .
+                    recruitmentSqlStr($conn, $degree) . ',' .
+                    recruitmentSqlStr($conn, $inst) . ',' .
+                    recruitmentSqlStr($conn, $ed['year_of_passing'] ?? '') . ',' .
+                    recruitmentSqlStr($conn, $ed['percentage'] ?? '') . ',' .
+                    recruitmentSqlStr($conn, $ed['specialization'] ?? '') . ',' .
+                    (int) $i .
+                ')'
+            );
+            $i++;
+        }
+
+        $j = 0;
+        foreach ($experience as $ex) {
+            $cname = trim((string) ($ex['company_name'] ?? ''));
+            $desig = trim((string) ($ex['designation'] ?? ''));
+            if ($cname === '' && $desig === '') {
+                continue;
+            }
+            $conn->query(
+                'INSERT INTO recruitment_experience
+                 (application_id, company_name, designation, from_date, to_date, is_current, last_salary, responsibilities, sort_order)
+                 VALUES (' .
+                    (int) $appId . ',' .
+                    recruitmentSqlStr($conn, $cname) . ',' .
+                    recruitmentSqlStr($conn, $desig) . ',' .
+                    recruitmentSqlStr($conn, $ex['from_date'] ?? '') . ',' .
+                    recruitmentSqlStr($conn, $ex['to_date'] ?? '') . ',' .
+                    (!empty($ex['is_current']) ? 1 : 0) . ',' .
+                    recruitmentSqlNum($ex['last_salary'] ?? null) . ',' .
+                    recruitmentSqlStr($conn, $ex['responsibilities'] ?? '') . ',' .
+                    (int) $j .
+                ')'
+            );
+            $j++;
+        }
+
+        recruitmentSaveDescriptiveAnswers($appId, $descriptive, $conn);
+
+        if ($close) {
+            $conn->close();
+        }
+        return ['ok' => true, 'id' => $appId, 'application_no' => $appNo];
+    }
+
+    function updateRecruitmentStatus($id, $status, $remarks = '', $conn = null)
+    {
+        $labels = recruitmentStatusLabels();
+        if (!isset($labels[$status])) {
+            return ['ok' => false, 'error' => 'Invalid status'];
+        }
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $id = (int) $id;
+        $st = $conn->prepare(
+            'UPDATE recruitment_applications SET status = ?, hr_remarks = ? WHERE id = ?'
+        );
+        $st->bind_param('ssi', $status, $remarks, $id);
+        $ok = $st->execute();
+        $err = $st->error;
+        $st->close();
+        if ($close) {
+            $conn->close();
+        }
+        return $ok ? ['ok' => true] : ['ok' => false, 'error' => $err];
+    }
+
+    function recruitmentDutyStatusLabels()
+    {
+        return [
+            'pending' => 'Pending',
+            'appeared' => 'Appears to Duty',
+            'not_appeared' => 'Not Appears for Duty',
+        ];
+    }
+
+    /**
+     * Financial year label e.g. 26-27 (Apr–Mar)
+     */
+    function recruitmentFinancialYearLabel($date = null)
+    {
+        $ts = $date ? strtotime((string) $date) : time();
+        if ($ts === false) {
+            $ts = time();
+        }
+        $y = (int) date('Y', $ts);
+        $m = (int) date('n', $ts);
+        $start = ($m >= 4) ? $y : ($y - 1);
+        return substr((string) $start, -2) . '-' . substr((string) ($start + 1), -2);
+    }
+
+    /**
+     * FY start calendar year for series key (e.g. 2026 for 26-27)
+     */
+    function recruitmentFinancialYearStart($date = null)
+    {
+        $ts = $date ? strtotime((string) $date) : time();
+        if ($ts === false) {
+            $ts = time();
+        }
+        $y = (int) date('Y', $ts);
+        $m = (int) date('n', $ts);
+        return ($m >= 4) ? $y : ($y - 1);
+    }
+
+    /**
+     * Next series no:
+     * Offer: ASIPL/HR/OFFER/26-27/0001
+     * Appointment: ASIPL/HR/APPOINT/26-27/0001
+     */
+    function recruitmentNextDocNo($docType, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $docType = strtolower(trim((string) $docType));
+        if (!in_array($docType, ['offer', 'appointment'], true)) {
+            $docType = 'offer';
+        }
+
+        $year = recruitmentFinancialYearStart();
+        $fyLabel = recruitmentFinancialYearLabel();
+
+        $conn->query(
+            "INSERT INTO recruitment_doc_series (doc_type, series_year, last_no)
+             VALUES ('" . $conn->real_escape_string($docType) . "', {$year}, 0)
+             ON DUPLICATE KEY UPDATE last_no = last_no"
+        );
+        $conn->query(
+            "UPDATE recruitment_doc_series SET last_no = last_no + 1
+             WHERE doc_type = '" . $conn->real_escape_string($docType) . "' AND series_year = {$year}"
+        );
+        $res = $conn->query(
+            "SELECT last_no FROM recruitment_doc_series
+             WHERE doc_type = '" . $conn->real_escape_string($docType) . "' AND series_year = {$year} LIMIT 1"
+        );
+        $n = 1;
+        if ($res && ($r = $res->fetch_assoc())) {
+            $n = (int) $r['last_no'];
+        }
+
+        if ($docType === 'offer') {
+            $no = 'ASIPL/HR/OFFER/' . $fyLabel . '/' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+        } else {
+            $no = 'ASIPL/HR/APPOINT/' . $fyLabel . '/' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+        }
+
+        if ($close) {
+            $conn->close();
+        }
+        return $no;
+    }
+
+    /**
+     * Normalize appointment nos → ASIPL/HR/APPOINT/YY-YY/####
+     */
+    function recruitmentNormalizeAppointmentLetterNo($no, $refDate = null)
+    {
+        $no = trim((string) $no);
+        if ($no === '') {
+            return '';
+        }
+        if (preg_match('#^ASIPL/HR/APPOINT/\d{2}-\d{2}/\d+$#', $no)) {
+            return $no;
+        }
+        if (preg_match('#^APT/(\d{4})/(\d+)$#', $no, $m)) {
+            $calYear = (int) $m[1];
+            $seq = (int) $m[2];
+            $fyLabel = recruitmentFinancialYearLabel($refDate ?: ($calYear . '-09-01'));
+            return 'ASIPL/HR/APPOINT/' . $fyLabel . '/' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+        }
+        if (preg_match('#^ASIPL/HR/APPOINT/(\d{4})/(\d+)$#', $no, $m)) {
+            $fyLabel = recruitmentFinancialYearLabel($refDate ?: ($m[1] . '-09-01'));
+            return 'ASIPL/HR/APPOINT/' . $fyLabel . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
+        }
+        return $no;
+    }
+
+    /**
+     * Convert legacy offer nos → ASIPL/HR/OFFER/YY-YY/####
+     */
+    function recruitmentNormalizeOfferLetterNo($no, $refDate = null)
+    {
+        $no = trim((string) $no);
+        if ($no === '') {
+            return '';
+        }
+        // Already correct format
+        if (preg_match('#^ASIPL/HR/OFFER/\d{2}-\d{2}/\d+$#', $no)) {
+            return $no;
+        }
+        if (preg_match('#^OFR/(\d{4})/(\d+)$#', $no, $m)) {
+            $calYear = (int) $m[1];
+            $seq = (int) $m[2];
+            $fyLabel = recruitmentFinancialYearLabel($refDate ?: ($calYear . '-09-01'));
+            return 'ASIPL/HR/OFFER/' . $fyLabel . '/' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+        }
+        if (preg_match('#^ASIPL_Offer_(\d{2}-\d{2})[_/](\d+)$#', $no, $m)) {
+            return 'ASIPL/HR/OFFER/' . $m[1] . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
+        }
+        if (preg_match('#^ASIPL/Offer/(\d{2}-\d{2})/(\d+)$#i', $no, $m)) {
+            return 'ASIPL/HR/OFFER/' . $m[1] . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
+        }
+        return $no;
+    }
+
+    /**
+     * Aadhaar duplicate across employees + other applications
+     */
+    function recruitmentFindAadhaarDuplicates($aadhaar, $excludeAppId = 0, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $aadhaar = preg_replace('/\D+/', '', (string) $aadhaar);
+        $out = ['employees' => [], 'applications' => []];
+        if (strlen($aadhaar) < 8) {
+            if ($close) {
+                $conn->close();
+            }
+            return $out;
+        }
+        $excludeAppId = (int) $excludeAppId;
+
+        // employees.aadhar_number
+        $st = $conn->prepare(
+            "SELECT id, employee_code, employee_name, status
+             FROM employees
+             WHERE REPLACE(REPLACE(REPLACE(aadhar_number,' ',''),'-',''),'/','') = ?
+             LIMIT 10"
+        );
+        if ($st) {
+            $st->bind_param('s', $aadhaar);
+            $st->execute();
+            $res = $st->get_result();
+            while ($r = $res->fetch_assoc()) {
+                $out['employees'][] = $r;
+            }
+            $st->close();
+        }
+
+        $st2 = $conn->prepare(
+            "SELECT id, application_no, full_name, status
+             FROM recruitment_applications
+             WHERE id <> ?
+               AND REPLACE(REPLACE(REPLACE(aadhaar_no,' ',''),'-',''),'/','') = ?
+             LIMIT 10"
+        );
+        if ($st2) {
+            $st2->bind_param('is', $excludeAppId, $aadhaar);
+            $st2->execute();
+            $res2 = $st2->get_result();
+            while ($r = $res2->fetch_assoc()) {
+                $out['applications'][] = $r;
+            }
+            $st2->close();
+        }
+
+        if ($close) {
+            $conn->close();
+        }
+        return $out;
+    }
+
+    function recruitmentIssueOfferLetter($applicationId, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $applicationId = (int) $applicationId;
+        $row = getRecruitmentApplication($applicationId, $conn);
+        if (!$row || ($row['status'] ?? '') !== 'selected') {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Only Selected candidates can get offer letter'];
+        }
+        $no = trim((string) ($row['offer_letter_no'] ?? ''));
+        $normalized = recruitmentNormalizeOfferLetterNo(
+            $no,
+            $row['offer_letter_date'] ?? ($row['selected_at'] ?? null)
+        );
+        if ($no === '') {
+            $no = recruitmentNextDocNo('offer', $conn);
+            $conn->query(
+                'UPDATE recruitment_applications SET
+                    offer_letter_no = ' . recruitmentSqlStr($conn, $no) . ',
+                    offer_letter_date = CURDATE(),
+                    offer_generated_at = IFNULL(offer_generated_at, NOW()),
+                    duty_status = IF(duty_status = \'\' OR duty_status IS NULL, \'pending\', duty_status)
+                 WHERE id = ' . $applicationId
+            );
+        } elseif ($normalized !== '' && $normalized !== $no) {
+            $no = $normalized;
+            $conn->query(
+                'UPDATE recruitment_applications SET
+                    offer_letter_no = ' . recruitmentSqlStr($conn, $no) . ',
+                    offer_generated_at = IFNULL(offer_generated_at, NOW()),
+                    offer_letter_date = IFNULL(offer_letter_date, CURDATE())
+                 WHERE id = ' . $applicationId
+            );
+        } else {
+            $conn->query(
+                'UPDATE recruitment_applications SET
+                    offer_generated_at = IFNULL(offer_generated_at, NOW()),
+                    offer_letter_date = IFNULL(offer_letter_date, CURDATE())
+                 WHERE id = ' . $applicationId
+            );
+        }
+        if ($close) {
+            $conn->close();
+        }
+        return ['ok' => true, 'offer_letter_no' => $no];
+    }
+
+    function recruitmentMarkDutyStatus($applicationId, $dutyStatus, $remarks = '', $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $applicationId = (int) $applicationId;
+        $dutyStatus = trim((string) $dutyStatus);
+        $allowed = ['pending', 'appeared', 'not_appeared'];
+        if (!in_array($dutyStatus, $allowed, true)) {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Invalid duty status'];
+        }
+        $remarks = trim((string) $remarks);
+        $ok = $conn->query(
+            'UPDATE recruitment_applications SET
+                duty_status = ' . recruitmentSqlStr($conn, $dutyStatus) . ',
+                duty_marked_at = NOW(),
+                duty_remarks = ' . recruitmentSqlStr($conn, $remarks) . '
+             WHERE id = ' . $applicationId . " AND status = 'selected'"
+        );
+        $err = $ok ? '' : $conn->error;
+        if ($close) {
+            $conn->close();
+        }
+        return $ok ? ['ok' => true] : ['ok' => false, 'error' => $err ?: 'Could not update duty status'];
+    }
+
+    function recruitmentIssueAppointmentLetter($applicationId, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $applicationId = (int) $applicationId;
+        $row = getRecruitmentApplication($applicationId, $conn);
+        if (!$row || ($row['status'] ?? '') !== 'selected') {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Candidate must be Selected'];
+        }
+        if (($row['duty_status'] ?? '') !== 'appeared') {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Mark “Appears to Duty” before appointment letter'];
+        }
+        $no = trim((string) ($row['appointment_letter_no'] ?? ''));
+        if ($no !== '') {
+            $normalized = recruitmentNormalizeAppointmentLetterNo($no, $row['appointment_letter_date'] ?? null);
+            if ($normalized !== '' && $normalized !== $no) {
+                $no = $normalized;
+                $conn->query(
+                    'UPDATE recruitment_applications SET
+                        appointment_letter_no = ' . recruitmentSqlStr($conn, $no) . '
+                     WHERE id = ' . $applicationId
+                );
+            }
+        }
+        if ($no === '') {
+            $no = recruitmentNextDocNo('appointment', $conn);
+            $conn->query(
+                'UPDATE recruitment_applications SET
+                    appointment_letter_no = ' . recruitmentSqlStr($conn, $no) . ',
+                    appointment_letter_date = CURDATE(),
+                    appointment_generated_at = NOW()
+                 WHERE id = ' . $applicationId
+            );
+        }
+        if ($close) {
+            $conn->close();
+        }
+        return ['ok' => true, 'appointment_letter_no' => $no];
+    }
+
+    /**
+     * Create employee from selected application (appeared for duty).
+     * codeMode: auto = AS series | application = use application_no digits
+     */
+    function recruitmentCreateEmployeeFromApplication($applicationId, $codeMode = 'auto', $joiningDate = '', $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        if (!function_exists('ensureEmployeesTable')) {
+            require_once __DIR__ . '/employee_helper.php';
+        }
+        ensureEmployeesTable($conn);
+
+        $applicationId = (int) $applicationId;
+        $row = getRecruitmentApplication($applicationId, $conn);
+        if (!$row || ($row['status'] ?? '') !== 'selected') {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Only Selected applications can convert to employee'];
+        }
+        if (!empty($row['employee_id'])) {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => true, 'employee_id' => (int) $row['employee_id'], 'exists' => true];
+        }
+
+        $aadhaar = preg_replace('/\D+/', '', (string) ($row['aadhaar_no'] ?? ''));
+        if ($aadhaar !== '') {
+            $dup = recruitmentFindAadhaarDuplicates($aadhaar, $applicationId, $conn);
+            if (!empty($dup['employees'])) {
+                $e = $dup['employees'][0];
+                if ($close) {
+                    $conn->close();
+                }
+                return [
+                    'ok' => false,
+                    'error' => 'Aadhaar already exists for employee ' . ($e['employee_code'] ?? '') . ' — ' . ($e['employee_name'] ?? ''),
+                    'duplicate' => $dup,
+                ];
+            }
+        }
+
+        $deptId = (int) ($row['department_id'] ?? 0);
+        if ($deptId <= 0) {
+            $deptName = trim((string) ($row['department_name'] ?? ''));
+            if ($deptName !== '') {
+                $st = $conn->prepare('SELECT id FROM departments WHERE department_name = ? LIMIT 1');
+                $st->bind_param('s', $deptName);
+                $st->execute();
+                $d = $st->get_result()->fetch_assoc();
+                $st->close();
+                $deptId = (int) ($d['id'] ?? 0);
+            }
+        }
+        if ($deptId <= 0) {
+            $d2 = $conn->query('SELECT id FROM departments WHERE status = 1 ORDER BY id ASC LIMIT 1');
+            if ($d2 && ($dr = $d2->fetch_assoc())) {
+                $deptId = (int) $dr['id'];
+            }
+        }
+        if ($deptId <= 0) {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Department not found — set department on application'];
+        }
+
+        if ($codeMode === 'application') {
+            $digits = preg_replace('/\D+/', '', (string) ($row['application_no'] ?? ''));
+            $code = 'AS' . substr($digits !== '' ? $digits : (string) $applicationId, -5);
+            if (!isEmployeeCodeUnique($conn, $code, 0)) {
+                $code = generateEmployeeCode($conn, 'Salary');
+            }
+        } else {
+            $code = generateEmployeeCode($conn, 'Salary');
+        }
+
+        $joiningDate = trim((string) $joiningDate);
+        if ($joiningDate === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $joiningDate)) {
+            $joiningDate = date('Y-m-d');
+        }
+
+        $name = trim((string) ($row['full_name'] ?? ''));
+        $mobile = trim((string) ($row['mobile'] ?? ''));
+        $desig = trim((string) ($row['position_name'] ?? ''));
+        $dob = !empty($row['dob']) ? (string) $row['dob'] : null;
+        $addr = trim((string) ($row['address'] ?? ''));
+        $pan = trim((string) ($row['pan_no'] ?? ''));
+        $bank = trim((string) ($row['bank_name'] ?? ''));
+        $acc = trim((string) ($row['bank_account'] ?? ''));
+        $ifsc = trim((string) ($row['bank_ifsc'] ?? ''));
+        $salary = $row['expected_salary'] !== null ? (float) $row['expected_salary'] : null;
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+
+        $sql = 'INSERT INTO employees (
+            employee_code, pay_type, department_id, employee_name,
+            permanent_address, present_address, mobile_number,
+            aadhar_number, pan_number, date_of_birth, designation, date_of_joining,
+            bank_name, bank_account_number, ifsc_code, decided_salary,
+            created_by, status
+        ) VALUES (
+            ' . recruitmentSqlStr($conn, $code) . ',
+            \'Salary\',
+            ' . $deptId . ',
+            ' . recruitmentSqlStr($conn, $name) . ',
+            ' . recruitmentSqlStr($conn, $addr) . ',
+            ' . recruitmentSqlStr($conn, $addr) . ',
+            ' . recruitmentSqlStr($conn, $mobile) . ',
+            ' . recruitmentSqlStr($conn, $aadhaar) . ',
+            ' . recruitmentSqlStr($conn, $pan) . ',
+            ' . ($dob ? recruitmentSqlStr($conn, $dob) : 'NULL') . ',
+            ' . recruitmentSqlStr($conn, $desig) . ',
+            ' . recruitmentSqlStr($conn, $joiningDate) . ',
+            ' . recruitmentSqlStr($conn, $bank) . ',
+            ' . recruitmentSqlStr($conn, $acc) . ',
+            ' . recruitmentSqlStr($conn, $ifsc) . ',
+            ' . recruitmentSqlNum($salary) . ',
+            ' . ($userId > 0 ? $userId : 'NULL') . ',
+            1
+        )';
+
+        if (!$conn->query($sql)) {
+            $err = $conn->error;
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => $err ?: 'Could not create employee'];
+        }
+        $empId = (int) $conn->insert_id;
+
+        $conn->query(
+            'UPDATE recruitment_applications SET
+                employee_id = ' . $empId . ',
+                proposed_employee_code = ' . recruitmentSqlStr($conn, $code) . ',
+                joining_date = ' . recruitmentSqlStr($conn, $joiningDate) . ',
+                duty_status = \'appeared\',
+                duty_marked_at = IFNULL(duty_marked_at, NOW())
+             WHERE id = ' . $applicationId
+        );
+
+        if ($close) {
+            $conn->close();
+        }
+        return ['ok' => true, 'employee_id' => $empId, 'employee_code' => $code];
+    }
+
+    function recruitmentFetchOfferReport($period = 'monthly', $year = 0, $month = 0, $quarter = 0, $conn = null)
+    {
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $year = $year > 0 ? (int) $year : (int) date('Y');
+        $month = (int) $month;
+        $quarter = (int) $quarter;
+        $period = in_array($period, ['monthly', 'quarterly', 'yearly'], true) ? $period : 'monthly';
+
+        $where = ["status = 'selected'", 'offer_letter_no IS NOT NULL', "offer_letter_no <> ''"];
+        if ($period === 'yearly') {
+            $where[] = 'YEAR(COALESCE(offer_letter_date, offer_generated_at, selected_at, created_at)) = ' . $year;
+        } elseif ($period === 'quarterly') {
+            if ($quarter < 1 || $quarter > 4) {
+                $quarter = (int) ceil((int) date('n') / 3);
+            }
+            $startMonth = (($quarter - 1) * 3) + 1;
+            $endMonth = $startMonth + 2;
+            $where[] = 'YEAR(COALESCE(offer_letter_date, offer_generated_at, selected_at, created_at)) = ' . $year;
+            $where[] = 'MONTH(COALESCE(offer_letter_date, offer_generated_at, selected_at, created_at)) BETWEEN ' . $startMonth . ' AND ' . $endMonth;
+        } else {
+            if ($month < 1 || $month > 12) {
+                $month = (int) date('n');
+            }
+            $where[] = 'YEAR(COALESCE(offer_letter_date, offer_generated_at, selected_at, created_at)) = ' . $year;
+            $where[] = 'MONTH(COALESCE(offer_letter_date, offer_generated_at, selected_at, created_at)) = ' . $month;
+        }
+
+        $sql = 'SELECT id, application_no, full_name, mobile, department_name, position_name,
+                       offer_letter_no, offer_letter_date, offer_generated_at,
+                       duty_status, duty_marked_at, employee_id, proposed_employee_code,
+                       appointment_letter_no, appointment_letter_date, joining_date, biometric_done, selected_at
+                FROM recruitment_applications
+                WHERE ' . implode(' AND ', $where) . '
+                ORDER BY COALESCE(offer_letter_date, offer_generated_at) DESC, id DESC';
+        $rows = [];
+        $res = $conn->query($sql);
+        if ($res) {
+            while ($r = $res->fetch_assoc()) {
+                $rows[] = $r;
+            }
+        }
+        if ($close) {
+            $conn->close();
+        }
+        return $rows;
+    }
+
+    /**
+     * Delete an application with its child rows and uploaded files.
+     * A joined employee record (employee_id) is not touched.
+     */
+    function deleteRecruitmentApplication($id, $conn = null)
+    {
+        $id = (int) $id;
+        if ($id <= 0) {
+            return ['ok' => false, 'error' => 'Invalid application'];
+        }
+        $close = false;
+        if ($conn === null) {
+            $conn = getDBConnection();
+            $close = true;
+        }
+        ensureRecruitmentTables($conn);
+        $st = $conn->prepare('SELECT * FROM recruitment_applications WHERE id = ? LIMIT 1');
+        $st->bind_param('i', $id);
+        $st->execute();
+        $row = $st->get_result()->fetch_assoc();
+        $st->close();
+        if (!$row) {
+            if ($close) {
+                $conn->close();
+            }
+            return ['ok' => false, 'error' => 'Application not found'];
+        }
+
+        foreach ([
+            'recruitment_education',
+            'recruitment_experience',
+            'recruitment_descriptive_answers',
+            'recruitment_followups',
+            'recruitment_application_marks',
+        ] as $table) {
+            $conn->query('DELETE FROM ' . $table . ' WHERE application_id = ' . $id);
+        }
+        $ok = $conn->query('DELETE FROM recruitment_applications WHERE id = ' . $id);
+        $err = $ok ? '' : $conn->error;
+        if ($close) {
+            $conn->close();
+        }
+        if (!$ok) {
+            return ['ok' => false, 'error' => $err ?: 'Delete failed'];
+        }
+
+        $root = dirname(__DIR__) . '/';
+        foreach ($row as $col => $val) {
+            $val = trim((string) $val);
+            if (substr($col, -5) !== '_file' || $val === '') {
+                continue;
+            }
+            if (strpos($val, 'assets/uploads/recruitment/') !== 0 || strpos($val, '..') !== false) {
+                continue;
+            }
+            if (is_file($root . $val)) {
+                @unlink($root . $val);
+            }
+        }
+        return ['ok' => true, 'application_no' => (string) ($row['application_no'] ?? '')];
+    }
+}

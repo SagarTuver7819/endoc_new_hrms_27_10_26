@@ -1,0 +1,1150 @@
+<?php
+/**
+ * employees/view.php
+ * Employee Details — profile + tab-wise activity (Leave / Attendance / Salary)
+ */
+
+require_once __DIR__ . '/../config/app.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/employee_helper.php';
+require_once __DIR__ . '/../includes/employee_documents_helper.php';
+require_once __DIR__ . '/../includes/leave_helper.php';
+require_once __DIR__ . '/../includes/attendance_helper.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/permission_helper.php';
+require_once __DIR__ . '/../includes/department_head_helper.php';
+
+ensureEmployeesTable();
+ensureEmployeeRelatedDocumentsTables();
+requireLogin();
+
+$id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$emp = $id > 0 ? getEmployeeById($id) : null;
+
+if (!$emp) {
+    header('Location: ' . app_url('dashboard.php'));
+    exit;
+}
+
+$deptId = (int) $emp['department_id'];
+$sessionEmpId = (int) ($_SESSION['employee_id'] ?? 0);
+$isOwnProfile = $sessionEmpId > 0 && $sessionEmpId === $id;
+
+// Office Staff may only open their own profile
+if (isOfficeStaffRole() && !$isOwnProfile) {
+    header('Location: ' . app_url('employees/view.php?id=' . $sessionEmpId . '&msg=denied'));
+    exit;
+}
+
+if ($isOwnProfile) {
+    // Own profile always allowed for linked employee login
+} else {
+    requireAccess('employees', 'view', $deptId);
+}
+
+$canEditEmployee = canAccess('employees', 'edit', $deptId);
+$canSalaryManage = $canEditEmployee || canAccess('payroll', 'view', $deptId);
+$canEmpPdf = $canEditEmployee || isAdmin() || isHR();
+$showAdminActions = $canEditEmployee || $canSalaryManage || $canEmpPdf;
+// Employee login (own profile / Office Staff): hide salary amount, pay type, salary tab, PF salary
+$showSalaryDetails = $canSalaryManage || isAdmin() || isHR();
+if ($isOwnProfile && isOfficeStaffRole()) {
+    $showSalaryDetails = false;
+}
+// Own profile: always allow viewing own bank account details (not salary amount)
+$showBankDetails = $showSalaryDetails || $isOwnProfile;
+
+// Admin / HR: show portal Login ID + Password on profile
+$portalLogin = null;
+$showPortalLogin = (isAdmin() || isHR()) && !$isOwnProfile;
+if ($showPortalLogin && function_exists('getEmployeePortalLoginByEmployeeId')) {
+    $portalLogin = getEmployeePortalLoginByEmployeeId($id);
+}
+
+$isDeactive = isEmployeeDeactive($emp);
+$tab = strtolower(trim((string) ($_GET['tab'] ?? 'profile')));
+if (!in_array($tab, ['profile', 'family', 'documents', 'leave', 'history', 'attendance', 'salary'], true)) {
+    $tab = 'profile';
+}
+if ($tab === 'salary' && !$showSalaryDetails) {
+    $tab = 'profile';
+}
+if ($isOwnProfile && isOfficeStaffRole() && in_array($tab, ['leave', 'history'], true)) {
+    header('Location: ' . app_url('leave/index.php'));
+    exit;
+}
+
+$year = (int) ($_GET['year'] ?? date('Y'));
+$month = (int) ($_GET['month'] ?? date('n'));
+if ($year < 2000 || $year > 2100) {
+    $year = (int) date('Y');
+}
+if ($month < 1 || $month > 12) {
+    $month = (int) date('n');
+}
+
+$pageTitle = $isOwnProfile
+    ? 'My Profile'
+    : ('Employee Details' . ($isDeactive ? ' (Deactive)' : ''));
+$extraCss = [
+    'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css',
+];
+if ($isOwnProfile) {
+    $extraCss[] = 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css';
+}
+
+$useSidebar = true;
+if ($isOwnProfile && (isOfficeStaffRole() || !canAccess('employees', 'view', $deptId))) {
+    $sidebarMode = 'workspace';
+    $sidebarDeptId = 0;
+    $sidebarActive = 'my_profile';
+} else {
+    $sidebarMode = 'department';
+    $sidebarDeptId = $deptId;
+    $sidebarActive = $isDeactive ? 'exit_employee' : 'join_employee';
+}
+
+ensureLeaveTables();
+$familyMembers = getEmployeeFamilyMembers($id);
+$relatedDocTypes = employeeRelatedDocumentTypes();
+$relatedDocs = getEmployeeRelatedDocuments($id);
+$relatedDocSummary = employeeRelatedDocumentsSummary($id);
+$canEditRelatedDocs = $isOwnProfile || $canEditEmployee || isAdmin() || isHR();
+$conn = getDBConnection();
+ensureAttendanceTables($conn);
+foreach (getActiveLeaveTypes($conn) as $lt) {
+    leaveEnsureBalanceRow($conn, $id, (int) $lt['id'], $year);
+}
+$leaveBalances = getEmployeeLeaveBalances($id, $year);
+$leaveHistory = fetchLeaveRequests($deptId, 'All', $year, $conn, $id);
+$attGrid = null;
+if ($tab === 'attendance') {
+    $attGrid = getAttendanceExcelMonthGrid($month, $year, $deptId, $id, $conn);
+}
+$conn->close();
+
+require_once __DIR__ . '/../includes/header.php';
+
+$toastMsg = '';
+$toastType = 'success';
+if (isset($_GET['msg'])) {
+    if ($_GET['msg'] === 'updated') {
+        $toastMsg = 'Employee updated successfully.';
+    } elseif ($_GET['msg'] === 'photo_updated') {
+        $toastMsg = 'Profile photo updated successfully.';
+    } elseif ($_GET['msg'] === 'photo_missing') {
+        $toastMsg = 'Please choose a photo to upload.';
+        $toastType = 'error';
+    } elseif ($_GET['msg'] === 'photo_error') {
+        $toastMsg = 'Could not update photo. Use JPG, PNG or WEBP (max 5MB).';
+        $toastType = 'error';
+    } elseif ($_GET['msg'] === 'doc_saved') {
+        $toastMsg = 'Document uploaded successfully.';
+    } elseif ($_GET['msg'] === 'doc_missing') {
+        $toastMsg = 'Please choose a file to upload.';
+        $toastType = 'error';
+    } elseif ($_GET['msg'] === 'doc_invalid') {
+        $toastMsg = 'Invalid document type.';
+        $toastType = 'error';
+    } elseif ($_GET['msg'] === 'doc_denied') {
+        $toastMsg = 'You do not have permission to update this document.';
+        $toastType = 'error';
+    } elseif ($_GET['msg'] === 'doc_error') {
+        $toastMsg = trim((string) ($_GET['err'] ?? ''));
+        if ($toastMsg === '') {
+            $toastMsg = 'Could not upload document. Check file type and size (max 5MB).';
+        }
+        $toastType = 'error';
+    }
+}
+$canEditOwnPhoto = $isOwnProfile && $sessionEmpId > 0;
+
+function showVal($v)
+{
+    if ($v === null || $v === '') {
+        return '-';
+    }
+    return htmlspecialchars((string) $v);
+}
+
+function empInitials($name)
+{
+    $name = trim((string) $name);
+    if ($name === '') {
+        return 'E';
+    }
+    $parts = preg_split('/\s+/', $name);
+    $first = mb_substr($parts[0], 0, 1);
+    $last = count($parts) > 1 ? mb_substr($parts[count($parts) - 1], 0, 1) : '';
+    return strtoupper($first . $last);
+}
+
+$salaryShow = ($emp['decided_salary'] !== null && $emp['decided_salary'] !== '')
+    ? '₹ ' . number_format((float) $emp['decided_salary'], 2)
+    : '-';
+
+$shiftClass = (strtolower((string) $emp['shift_type']) === 'night') ? 'is-night' : 'is-day';
+$photoUrl = employeeDocumentPublicUrl($emp['photo_file'] ?? '');
+
+$from = (string) ($_GET['from'] ?? '');
+if ($isOwnProfile && (isOfficeStaffRole() || $from === 'self')) {
+    $backUrl = app_url('employee/dashboard.php');
+    $backText = 'Back to Home';
+} elseif ($from === 'exit') {
+    $backUrl = app_url('employees/exit_list.php' . ($deptId > 0 ? '?department_id=' . $deptId : ''));
+    $backText = 'Back to Exit Employee List';
+} elseif ($from === 'all') {
+    $backUrl = app_url('employees/index.php');
+    $backText = 'Back to All Employees';
+} elseif ($isDeactive) {
+    $backUrl = app_url('employees/exit_list.php' . ($deptId > 0 ? '?department_id=' . $deptId : ''));
+    $backText = 'Back to Exit Employee List';
+} else {
+    $backUrl = app_url('employees/index.php?department_id=' . $deptId);
+    $backText = 'Back to Employee List';
+}
+
+$baseQs = array_filter([
+    'id' => $id,
+    'from' => $from !== '' ? $from : null,
+]);
+$tabUrl = function ($t) use ($baseQs, $year, $month) {
+    $q = $baseQs + ['tab' => $t];
+    if ($t === 'attendance') {
+        $q['month'] = $month;
+        $q['year'] = $year;
+    } elseif (in_array($t, ['leave', 'history'], true)) {
+        $q['year'] = $year;
+    }
+    return app_url('employees/view.php?' . http_build_query($q));
+};
+?>
+
+<main class="dashboard-main">
+    <div class="page-toolbar flex-between">
+        <a href="<?php echo htmlspecialchars($backUrl); ?>" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i> <?php echo htmlspecialchars($backText); ?>
+        </a>
+        <?php if (!$isOwnProfile && (!isset($_GET['from']) || $_GET['from'] !== 'all')): ?>
+        <a href="<?php echo app_url('department.php?id=' . $deptId); ?>" class="btn-secondary">
+            <i class="fa-solid fa-puzzle-piece"></i> Module Boxes
+        </a>
+        <?php endif; ?>
+    </div>
+
+    <section class="emp-id-card">
+        <div class="emp-id-top">
+            <div class="emp-id-identity">
+                <?php if ($canEditOwnPhoto): ?>
+                <form action="<?php echo app_url('employee/photo_save.php'); ?>" method="post" enctype="multipart/form-data" class="emp-avatar-form" id="empOwnPhotoForm">
+                    <div class="emp-avatar emp-avatar-editable emp-avatar--profile<?php echo $photoUrl !== '' ? ' emp-photo-view-btn' : ''; ?>"
+                         <?php if ($photoUrl !== ''): ?>data-photo-url="<?php echo htmlspecialchars($photoUrl); ?>" title="Click to view · camera to change"<?php else: ?>title="Add photo"<?php endif; ?>
+                         id="empOwnPhotoWrap">
+                        <?php if ($photoUrl !== ''): ?>
+                            <img src="<?php echo htmlspecialchars($photoUrl); ?>" alt="" id="empOwnPhotoPreview">
+                        <?php else: ?>
+                            <span id="empOwnPhotoInitials"><?php echo htmlspecialchars(empInitials($emp['employee_name'])); ?></span>
+                            <img src="" alt="" id="empOwnPhotoPreview" hidden>
+                        <?php endif; ?>
+                        <button type="button" class="emp-avatar-camera emp-avatar-change-btn" id="empOwnPhotoChangeBtn" title="Change &amp; crop photo" aria-label="Change photo">
+                            <i class="fa-solid fa-camera"></i>
+                        </button>
+                        <input type="file" name="photo_file" id="empOwnPhotoInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" hidden>
+                    </div>
+                    <button type="submit" class="emp-avatar-save-btn" id="empOwnPhotoSave" hidden>
+                        <i class="fa-solid fa-check"></i> Save Photo
+                    </button>
+                    <small class="emp-avatar-hint"><?php echo $photoUrl !== '' ? 'Click photo to view · camera to crop' : 'Tap camera to crop &amp; set photo'; ?></small>
+                </form>
+                <?php else: ?>
+                <?php if ($photoUrl !== ''): ?>
+                <button type="button" class="emp-avatar emp-avatar--profile emp-photo-view-btn" data-photo-url="<?php echo htmlspecialchars($photoUrl); ?>" title="View photo" aria-label="View profile photo">
+                    <img src="<?php echo htmlspecialchars($photoUrl); ?>" alt="">
+                </button>
+                <?php else: ?>
+                <div class="emp-avatar emp-avatar--profile" aria-hidden="true">
+                    <span><?php echo htmlspecialchars(empInitials($emp['employee_name'])); ?></span>
+                </div>
+                <?php endif; ?>
+                <?php endif; ?>
+                <div class="emp-id-copy">
+                    <div class="emp-id-tags">
+                        <?php if ($isDeactive): ?>
+                            <span class="status-pill status-deactive" title="<?php echo !empty($emp['date_of_exit']) ? ('Exit Date: ' . htmlspecialchars(formatDateDisplay($emp['date_of_exit']))) : 'Deactive'; ?>">
+                                <i class="fa-solid fa-circle"></i> Deactive
+                            </span>
+                        <?php else: ?>
+                            <span class="status-pill status-active"><i class="fa-solid fa-circle"></i> Active</span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="emp-id-title-row">
+                        <strong class="emp-id-code"><?php echo showVal($emp['employee_code']); ?></strong>
+                        <h1><?php echo showVal($emp['employee_name']); ?></h1>
+                    </div>
+                    <p class="emp-id-role">
+                        <span><i class="fa-solid fa-briefcase"></i> <?php echo showVal($emp['designation']); ?></span>
+                        <span class="sep">|</span>
+                        <span><i class="fa-solid fa-building"></i> <?php echo showVal($emp['department_name']); ?></span>
+                        <?php if ($showSalaryDetails): ?>
+                        <span class="sep">|</span>
+                        <span class="pay-pill <?php echo payTypeCssClass($emp['pay_type'] ?? 'Salary'); ?>">
+                            <?php echo htmlspecialchars(payTypeLabel($emp['pay_type'] ?? 'Salary')); ?>
+                        </span>
+                        <?php endif; ?>
+                    </p>
+                </div>
+            </div>
+            <?php if ($showAdminActions): ?>
+            <div class="emp-id-actions">
+                <?php if ($canEmpPdf): ?>
+                <?php
+                require_once __DIR__ . '/../includes/induction_helper.php';
+                $isSalesEmp = employeeIsSalesRole($emp);
+                if ($isSalesEmp):
+                ?>
+                <a href="<?php echo app_url('employees/induction.php?id=' . (int) $emp['id'] . '&type=sales'); ?>" target="_blank" class="btn-ghost" title="Sales training (includes general points)">
+                    <i class="fa-solid fa-handshake"></i> Sales Training
+                </a>
+                <?php else: ?>
+                <a href="<?php echo app_url('employees/induction.php?id=' . (int) $emp['id'] . '&type=general'); ?>" target="_blank" class="btn-ghost" title="General induction">
+                    <i class="fa-solid fa-clipboard-list"></i> Induction
+                </a>
+                <?php endif; ?>
+                <div class="emp-letters-dd">
+                    <button type="button" class="btn-ghost emp-letters-btn" id="empLettersBtn" aria-expanded="false" aria-haspopup="true">
+                        <i class="fa-solid fa-envelopes-bulk"></i> Letters
+                        <i class="fa-solid fa-chevron-down emp-letters-caret"></i>
+                    </button>
+                    <div class="emp-letters-menu" id="empLettersMenu" hidden>
+                        <?php if (!$isDeactive): ?>
+                        <a href="<?php echo app_url('employees/appointment_letter.php?id=' . (int) $emp['id']); ?>" target="_blank" rel="noopener">
+                            <i class="fa-solid fa-file-signature"></i>
+                            <span>
+                                <?php echo !empty($emp['appointment_letter_no']) ? 'Appointment Letter' : 'Generate Appointment Letter'; ?>
+                                <?php if (!empty($emp['appointment_letter_no'])): ?>
+                                <small><?php echo htmlspecialchars((string) $emp['appointment_letter_no']); ?></small>
+                                <?php endif; ?>
+                            </span>
+                        </a>
+                        <?php endif; ?>
+                        <a href="<?php echo app_url('employees/experience_letter.php?id=' . (int) $emp['id']); ?>" target="_blank" rel="noopener">
+                            <i class="fa-solid fa-file-lines"></i>
+                            <span>
+                                Experience Letter
+                                <small><?php echo $isDeactive ? 'Joining → Exit Date' : 'Joining → Till Date'; ?></small>
+                            </span>
+                        </a>
+                        <a href="<?php echo app_url('employees/pdf.php?id=' . (int) $emp['id'] . '&lang=en'); ?>" target="_blank" rel="noopener">
+                            <i class="fa-solid fa-file-pdf"></i>
+                            <span>Application Form <small>English</small></span>
+                        </a>
+                        <a href="<?php echo app_url('employees/pdf.php?id=' . (int) $emp['id'] . '&lang=hi'); ?>" target="_blank" rel="noopener">
+                            <i class="fa-solid fa-file-pdf"></i>
+                            <span>Application Form <small>हिंदी</small></span>
+                        </a>
+                    </div>
+                </div>
+                <?php endif; ?>
+                <?php if ($canSalaryManage): ?>
+                <a href="<?php echo app_url('employees/salary.php?id=' . (int) $emp['id']); ?>" class="btn-ghost">
+                    <i class="fa-solid fa-indian-rupee-sign"></i> Salary Details
+                </a>
+                <?php endif; ?>
+                <?php if ($canEditEmployee): ?>
+                <a href="<?php echo app_url('employees/edit.php?id=' . (int) $emp['id'] . '&department_id=' . $deptId); ?>" class="btn-primary">
+                    <i class="fa-solid fa-pen"></i> Edit Employee
+                </a>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="emp-id-stats">
+            <div class="emp-stat-item">
+                <div class="emp-stat-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                <div>
+                    <span>Joining Date</span>
+                    <strong><?php echo showVal(formatDateDisplay($emp['date_of_joining'])); ?></strong>
+                </div>
+            </div>
+            <?php if (!empty($emp['date_of_exit']) && $emp['date_of_exit'] !== '0000-00-00'): ?>
+            <div class="emp-stat-item is-exit-stat">
+                <div class="emp-stat-icon" style="background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-door-open"></i></div>
+                <div>
+                    <span>Exit Date</span>
+                    <strong style="color:#dc2626;"><?php echo showVal(formatDateDisplay($emp['date_of_exit'])); ?></strong>
+                </div>
+            </div>
+            <?php endif; ?>
+            <div class="emp-stat-item">
+                <div class="emp-stat-icon"><i class="fa-solid fa-clock"></i></div>
+                <div>
+                    <span>Shift</span>
+                    <?php
+                    $shiftLabelsView = resolveEmployeeShiftLabels($emp);
+                    $shiftTimeShow = $shiftLabelsView['time'] !== '' ? $shiftLabelsView['time'] : '';
+                    ?>
+                    <strong class="shift-pill <?php echo $shiftClass; ?>"><?php echo showVal($emp['shift_type']); ?></strong>
+                    <?php if ($shiftTimeShow !== ''): ?>
+                        <div class="emp-shift-time"><?php echo htmlspecialchars($shiftTimeShow); ?></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="emp-stat-item">
+                <div class="emp-stat-icon"><i class="fa-solid fa-envelope"></i></div>
+                <div>
+                    <span>Official Mail ID</span>
+                    <strong class="emp-stat-mail"><?php echo showVal($emp['office_email'] ?? ''); ?></strong>
+                </div>
+            </div>
+            <div class="emp-stat-item">
+                <div class="emp-stat-icon"><i class="fa-solid fa-phone"></i></div>
+                <div>
+                    <span>Official Mobile</span>
+                    <strong><?php echo showVal($emp['office_mobile'] ?? ''); ?></strong>
+                </div>
+            </div>
+            <div class="emp-stat-item">
+                <div class="emp-stat-icon"><i class="fa-solid fa-mobile-screen"></i></div>
+                <div>
+                    <span>Personal Mobile</span>
+                    <strong><?php echo showVal($emp['mobile_number']); ?></strong>
+                </div>
+            </div>
+            <?php if ($showPortalLogin): ?>
+            <div class="emp-stat-item emp-stat-login">
+                <div class="emp-stat-icon" style="background:#eff6ff;color:#1d4ed8;"><i class="fa-solid fa-right-to-bracket"></i></div>
+                <div>
+                    <span>Employee Login ID</span>
+                    <?php if (!empty($portalLogin['username'])): ?>
+                        <strong><code class="emp-login-id"><?php echo htmlspecialchars((string) $portalLogin['username']); ?></code></strong>
+                        <div class="emp-login-pass-row">
+                            <span>Password</span>
+                            <code class="assign-pass-show"><?php echo htmlspecialchars((string) ($portalLogin['password'] ?? '')); ?></code>
+                        </div>
+                        <?php if (!empty($portalLogin['role_name'])): ?>
+                            <div class="emp-login-role-hint"><?php echo htmlspecialchars((string) $portalLogin['role_name']); ?></div>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <strong class="text-muted">No login yet</strong>
+                        <div style="margin-top:6px;">
+                            <a href="<?php echo app_url('roles/assign.php?employee_id=' . (int) $id); ?>" class="btn-sm btn-primary">
+                                <i class="fa-solid fa-plus"></i> Create Login
+                            </a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+            <?php if ($showSalaryDetails): ?>
+            <div class="emp-stat-item">
+                <div class="emp-stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                <div>
+                    <span>Salary</span>
+                    <strong><?php echo $salaryShow; ?></strong>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <nav class="emp-activity-tabs" aria-label="Employee sections">
+        <a class="emp-activity-tab <?php echo $tab === 'profile' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($tabUrl('profile')); ?>">
+            <span class="emp-tab-ico"><i class="fa-solid fa-id-card"></i></span>
+            <span class="emp-tab-label">Profile</span>
+        </a>
+        <a class="emp-activity-tab <?php echo $tab === 'family' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($tabUrl('family')); ?>">
+            <span class="emp-tab-ico"><i class="fa-solid fa-people-roof"></i></span>
+            <span class="emp-tab-label">Family</span>
+            <span class="emp-tab-badge"><?php echo count($familyMembers); ?></span>
+        </a>
+        <a class="emp-activity-tab <?php echo $tab === 'documents' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($tabUrl('documents')); ?>">
+            <span class="emp-tab-ico"><i class="fa-solid fa-folder-open"></i></span>
+            <span class="emp-tab-label">Documents</span>
+            <span class="emp-tab-badge"><?php echo (int) $relatedDocSummary['done']; ?>/<?php echo (int) $relatedDocSummary['total']; ?></span>
+        </a>
+        <?php if (!($isOwnProfile && isOfficeStaffRole())): ?>
+        <a class="emp-activity-tab <?php echo $tab === 'leave' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($tabUrl('leave')); ?>">
+            <span class="emp-tab-ico"><i class="fa-solid fa-scale-balanced"></i></span>
+            <span class="emp-tab-label">Leave Balance</span>
+        </a>
+        <a class="emp-activity-tab <?php echo $tab === 'history' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($tabUrl('history')); ?>">
+            <span class="emp-tab-ico"><i class="fa-solid fa-clock-rotate-left"></i></span>
+            <span class="emp-tab-label">Leave History</span>
+            <span class="emp-tab-badge"><?php echo count($leaveHistory); ?></span>
+        </a>
+        <?php endif; ?>
+        <a class="emp-activity-tab <?php echo $tab === 'attendance' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($tabUrl('attendance')); ?>">
+            <span class="emp-tab-ico"><i class="fa-solid fa-user-check"></i></span>
+            <span class="emp-tab-label">Attendance</span>
+        </a>
+        <?php if ($showSalaryDetails): ?>
+        <a class="emp-activity-tab <?php echo $tab === 'salary' ? 'active' : ''; ?>" href="<?php echo htmlspecialchars($tabUrl('salary')); ?>">
+            <span class="emp-tab-ico"><i class="fa-solid fa-indian-rupee-sign"></i></span>
+            <span class="emp-tab-label">Salary</span>
+        </a>
+        <?php endif; ?>
+    </nav>
+
+    <?php if ($tab === 'family'): ?>
+        <div class="view-card view-card-wide family-view-panel">
+            <div class="view-card-head">
+                <i class="fa-solid fa-people-roof"></i>
+                <div>
+                    <h3>Family Details</h3>
+                    <p><?php echo count($familyMembers); ?> member<?php echo count($familyMembers) === 1 ? '' : 's'; ?> linked to this employee</p>
+                </div>
+                <?php if ($canEditEmployee): ?>
+                <a class="btn-ghost view-card-action" href="<?php echo app_url('employees/edit.php?id=' . (int) $emp['id'] . '&department_id=' . $deptId); ?>">
+                    <i class="fa-solid fa-pen"></i> Edit
+                </a>
+                <?php endif; ?>
+            </div>
+            <?php if (!$familyMembers): ?>
+                <div class="family-empty-state">
+                    <div class="family-empty-icon"><i class="fa-solid fa-people-roof"></i></div>
+                    <h4>No family members added</h4>
+                    <?php if ($canEditEmployee): ?>
+                    <p>Add family details from Edit Employee → Family Details section.</p>
+                    <a class="btn-primary" href="<?php echo app_url('employees/edit.php?id=' . (int) $emp['id'] . '&department_id=' . $deptId); ?>">
+                        <i class="fa-solid fa-plus"></i> Add Family Members
+                    </a>
+                    <?php else: ?>
+                    <p>Family details have not been added yet. Contact HR if an update is needed.</p>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <div class="family-view-grid">
+                    <?php foreach ($familyMembers as $i => $fm): ?>
+                        <article class="family-view-card">
+                            <div class="family-view-rank"><?php echo $i + 1; ?></div>
+                            <div class="family-view-body">
+                                <h4><?php echo showVal($fm['member_name'] ?? ''); ?></h4>
+                                <div class="family-view-meta">
+                                    <span><i class="fa-solid fa-link"></i> <?php echo showVal($fm['relation_name'] ?? ''); ?></span>
+                                    <span><i class="fa-solid fa-briefcase"></i> <?php echo showVal($fm['occupation'] ?? ''); ?></span>
+                                </div>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+    <?php elseif ($tab === 'documents'): ?>
+        <div class="view-card view-card-wide family-view-panel related-docs-panel">
+            <div class="view-card-head">
+                <i class="fa-solid fa-folder-open"></i>
+                <div>
+                    <h3>Related Documents</h3>
+                    <p>
+                        <?php echo (int) $relatedDocSummary['done']; ?> uploaded
+                        · <?php echo (int) $relatedDocSummary['pending']; ?> pending
+                        · Optional (not all required)
+                    </p>
+                </div>
+            </div>
+            <div class="related-docs-grid">
+                <?php
+                $docIndex = 0;
+                foreach ($relatedDocTypes as $docKey => $docMeta):
+                    $docIndex++;
+                    $docRow = $relatedDocs[$docKey] ?? null;
+                    $filePath = $docRow['file_path'] ?? '';
+                    $fileUrl = $filePath !== '' ? employeeDocumentPublicUrl($filePath) : '';
+                    $isDone = $fileUrl !== '';
+                    $isPhoto = ($docKey === 'passport_photo');
+                ?>
+                <article class="related-doc-card <?php echo $isDone ? 'is-done' : 'is-pending'; ?>">
+                    <div class="related-doc-rank"><?php echo $docIndex; ?></div>
+                    <div class="related-doc-body">
+                        <h4>
+                            <i class="fa-solid <?php echo htmlspecialchars($docMeta['icon']); ?>"></i>
+                            <?php echo htmlspecialchars($docMeta['label']); ?>
+                        </h4>
+                        <span class="related-doc-status <?php echo $isDone ? 'ok' : 'wait'; ?>">
+                            <?php echo $isDone ? 'Uploaded' : 'Pending'; ?>
+                        </span>
+                        <p class="related-doc-hint">
+                            <?php echo $isPhoto ? 'JPG / PNG · max 5MB' : 'PDF only · max 5MB'; ?>
+                        </p>
+                        <div class="related-doc-actions">
+                            <?php if ($canEditRelatedDocs): ?>
+                                <form class="related-doc-form" method="post" action="<?php echo app_url('employees/documents_save.php'); ?>" enctype="multipart/form-data">
+                                    <input type="hidden" name="employee_id" value="<?php echo (int) $id; ?>">
+                                    <input type="hidden" name="doc_type" value="<?php echo htmlspecialchars($docKey); ?>">
+                                    <label class="btn-primary related-doc-upload">
+                                        <i class="fa-solid fa-<?php echo $isDone ? 'pen' : 'upload'; ?>"></i>
+                                        <?php echo $isDone ? 'Replace' : 'Upload'; ?>
+                                        <input type="file"
+                                               name="document_file"
+                                               accept="<?php echo htmlspecialchars($docMeta['accept']); ?>"
+                                               required
+                                               onchange="this.form.submit()">
+                                    </label>
+                                </form>
+                            <?php elseif (!$isDone): ?>
+                                <span class="related-doc-na">Not uploaded</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if ($isDone): ?>
+                        <div class="related-doc-thumb"
+                             role="button"
+                             tabindex="0"
+                             data-doc-url="<?php echo htmlspecialchars($fileUrl); ?>"
+                             data-doc-type="<?php echo $isPhoto ? 'image' : 'pdf'; ?>"
+                             data-doc-title="<?php echo htmlspecialchars($docMeta['label']); ?>"
+                             title="Click to view">
+                            <?php if ($isPhoto): ?>
+                                <img src="<?php echo htmlspecialchars($fileUrl); ?>" alt="<?php echo htmlspecialchars($docMeta['label']); ?>">
+                            <?php else: ?>
+                                <div class="related-doc-thumb-pdf-wrap" aria-hidden="true">
+                                    <iframe class="related-doc-thumb-pdf"
+                                            src="<?php echo htmlspecialchars($fileUrl); ?>#toolbar=0&navpanes=0&scrollbar=0&view=FitH&page=1"
+                                            title=""
+                                            tabindex="-1"
+                                            loading="lazy"></iframe>
+                                </div>
+                                <span class="related-doc-thumb-badge"><i class="fa-solid fa-file-pdf"></i></span>
+                            <?php endif; ?>
+                            <span class="related-doc-thumb-zoom"><i class="fa-solid fa-magnifying-glass-plus"></i></span>
+                        </div>
+                    <?php else: ?>
+                        <div class="related-doc-thumb is-empty" aria-hidden="true">
+                            <i class="fa-solid fa-<?php echo $isPhoto ? 'image' : 'file-pdf'; ?>"></i>
+                        </div>
+                    <?php endif; ?>
+                </article>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+    <?php elseif ($tab === 'leave'): ?>
+        <div class="form-page-card">
+            <div class="form-page-header flex-between" style="align-items:center;">
+                <div>
+                    <h3 style="margin:0;">Leave Balance — <?php echo $year; ?></h3>
+                    <p style="margin:4px 0 0;">Remaining days by leave type</p>
+                </div>
+                <a class="btn-secondary" href="<?php echo app_url('leave/balance.php?' . http_build_query([
+                    'department_id' => $deptId,
+                    'employee_id' => $id,
+                    'year' => $year,
+                    'tab' => 'balance',
+                ])); ?>">
+                    <i class="fa-solid fa-pen"></i> Edit Balance
+                </a>
+            </div>
+            <div class="leave-balance-cards">
+                <?php if (!$leaveBalances): ?>
+                    <p class="empty-msg">No leave balance rows. Allocate year from Leave Balance page.</p>
+                <?php endif; ?>
+                <?php foreach ($leaveBalances as $r): ?>
+                    <div class="leave-balance-card">
+                        <div class="lb-code"><?php echo htmlspecialchars($r['code'] ?: 'LEAVE'); ?></div>
+                        <div class="lb-name"><?php echo htmlspecialchars($r['leave_type']); ?></div>
+                        <div class="lb-remain"><?php echo number_format((float) $r['remaining_days'], 1); ?></div>
+                        <div class="lb-meta">
+                            Opening <?php echo number_format((float) $r['opening_days'], 1); ?>
+                            · Used <strong><?php echo number_format((float) $r['used_days'], 1); ?></strong>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Leave Type</th>
+                            <th>Paid</th>
+                            <th>Opening</th>
+                            <th>Credited</th>
+                            <th>Adjusted</th>
+                            <th>Used</th>
+                            <th>Remaining</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($leaveBalances as $r): ?>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars(($r['code'] ? $r['code'] . ' · ' : '') . $r['leave_type']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($r['is_paid'] ?? 'Yes'); ?></td>
+                            <td><?php echo number_format((float) $r['opening_days'], 1); ?></td>
+                            <td><?php echo number_format((float) $r['credited_days'], 1); ?></td>
+                            <td><?php echo number_format((float) $r['adjusted_days'], 1); ?></td>
+                            <td><strong><?php echo number_format((float) $r['used_days'], 1); ?></strong></td>
+                            <td><strong><?php echo number_format((float) $r['remaining_days'], 1); ?></strong></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    <?php elseif ($tab === 'history'): ?>
+        <div class="form-page-card">
+            <div class="form-page-header flex-between" style="align-items:center;">
+                <div>
+                    <h3 style="margin:0;">Leave History — <?php echo $year; ?></h3>
+                    <p style="margin:4px 0 0;">All leave requests for this employee</p>
+                </div>
+                <a class="btn-primary" href="<?php echo app_url('leave/apply.php?department_id=' . $deptId . '&employee_id=' . $id); ?>">
+                    <i class="fa-solid fa-plus"></i> Apply Leave
+                </a>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Sr</th>
+                            <th>Leave</th>
+                            <th>Half</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Days</th>
+                            <th>Status</th>
+                            <th>Reason</th>
+                            <th>Applied</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php if (!$leaveHistory): ?>
+                        <tr><td colspan="9" class="empty-cell">No leave history.</td></tr>
+                    <?php endif; ?>
+                    <?php foreach ($leaveHistory as $i => $r): ?>
+                        <?php
+                        $half = leaveNormalizeHalf($r['leave_half'] ?? 'FULL');
+                        $st = $r['status'];
+                        $cls = $st === 'Approved' ? 'color:#047857' : ($st === 'Pending' ? 'color:#b45309' : ($st === 'Rejected' ? 'color:#b91c1c' : 'color:#64748b'));
+                        ?>
+                        <tr>
+                            <td><?php echo $i + 1; ?></td>
+                            <td><strong><?php echo htmlspecialchars(($r['code'] ? $r['code'] . ' · ' : '') . $r['leave_type']); ?></strong></td>
+                            <td><strong><?php echo htmlspecialchars($half === 'FULL' ? 'Full' : $half); ?></strong></td>
+                            <td><?php echo htmlspecialchars(formatDateDisplay($r['from_date'])); ?></td>
+                            <td><?php echo htmlspecialchars(formatDateDisplay($r['to_date'])); ?></td>
+                            <td><strong><?php echo number_format((float) $r['days'], 1); ?></strong></td>
+                            <td><strong style="<?php echo $cls; ?>"><?php echo htmlspecialchars($st); ?></strong></td>
+                            <td><?php echo htmlspecialchars($r['reason'] ?: '-'); ?></td>
+                            <td><?php echo htmlspecialchars(!empty($r['created_at']) ? formatDateDisplay($r['created_at']) : '-'); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    <?php elseif ($tab === 'attendance'): ?>
+        <div class="form-page-card">
+            <div class="form-page-header">
+                <h3 style="margin:0 0 10px;">Attendance — <?php echo htmlspecialchars(date('F Y', mktime(0, 0, 0, $month, 1, $year))); ?></h3>
+                <form method="GET" class="employee-form" style="margin:0;">
+                    <input type="hidden" name="id" value="<?php echo $id; ?>">
+                    <input type="hidden" name="tab" value="attendance">
+                    <?php if ($from !== ''): ?><input type="hidden" name="from" value="<?php echo htmlspecialchars($from); ?>"><?php endif; ?>
+                    <div class="form-grid form-grid-3">
+                        <div class="form-group">
+                            <label>Month</label>
+                            <select name="month" class="form-control" onchange="this.form.submit()">
+                                <?php for ($m = 1; $m <= 12; $m++): ?>
+                                    <option value="<?php echo $m; ?>" <?php echo $m === $month ? 'selected' : ''; ?>>
+                                        <?php echo date('F', mktime(0, 0, 0, $m, 1)); ?>
+                                    </option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Year</label>
+                            <select name="year" class="form-control" onchange="this.form.submit()">
+                                <?php for ($y = (int) date('Y') - 2; $y <= (int) date('Y') + 1; $y++): ?>
+                                    <option value="<?php echo $y; ?>" <?php echo $y === $year ? 'selected' : ''; ?>><?php echo $y; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:flex-end;gap:8px;">
+                            <?php if (canAccess('attendance', 'view', $deptId) && !isOfficeStaffRole()): ?>
+                            <a class="btn-secondary" href="<?php echo app_url('attendance/report.php?' . http_build_query([
+                                'show' => 1,
+                                'department_id' => $deptId,
+                                'employee_id' => $id,
+                                'month' => $month,
+                                'year' => $year,
+                            ])); ?>">Full Report</a>
+                            <?php endif; ?>
+                            <?php if (canAccess('attendance', 'add', $deptId) || canAccess('attendance', 'edit', $deptId)): ?>
+                            <a class="btn-primary" href="<?php echo app_url('attendance/manual.php?' . http_build_query([
+                                'department_id' => $deptId,
+                                'month' => $month,
+                                'year' => $year,
+                                'show' => 1,
+                            ])); ?>">Manual Entry</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <?php if ($attGrid): ?>
+                <div class="table-wrap excel-att-wrap">
+                    <?php echo attendanceRenderExcelMonthTableHtml($attGrid, ['tableClass' => 'data-table excel-att-table']); ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+    <?php elseif ($tab === 'salary' && $showSalaryDetails): ?>
+        <div class="form-page-card">
+            <div class="form-page-header flex-between" style="align-items:center;">
+                <div>
+                    <h3 style="margin:0;">Salary Overview</h3>
+                    <p style="margin:4px 0 0;"><?php echo $canSalaryManage ? 'Quick view · open full salary details to edit' : 'Quick view of pay details'; ?></p>
+                </div>
+                <?php if ($canSalaryManage): ?>
+                <a class="btn-primary" href="<?php echo app_url('employees/salary.php?id=' . $id); ?>">
+                    <i class="fa-solid fa-indian-rupee-sign"></i> Open Salary Details
+                </a>
+                <?php endif; ?>
+            </div>
+            <dl class="info-list">
+                <div class="info-row"><dt>Pay Type</dt><dd><?php echo showVal(payTypeLabel($emp['pay_type'] ?? 'Salary')); ?></dd></div>
+                <div class="info-row"><dt>Decided Salary</dt><dd><strong><?php echo $salaryShow; ?></strong></dd></div>
+                <div class="info-row"><dt>PF Deduction</dt><dd><?php echo showVal($emp['pf_deduction']); ?></dd></div>
+                <div class="info-row"><dt>PF Start Date</dt><dd><?php echo showVal(formatDateDisplay($emp['pf_start_date'] ?? '')); ?></dd></div>
+                <div class="info-row"><dt>Employee PF Contribution</dt><dd><?php
+                    $pec = $emp['pf_employee_contribution'] ?? '';
+                    echo ($pec !== null && $pec !== '') ? ('₹ ' . number_format((float) $pec, 2)) : '-';
+                ?></dd></div>
+                <div class="info-row"><dt>UAN Number</dt><dd><?php echo showVal($emp['uan_number']); ?></dd></div>
+                <div class="info-row"><dt>Bank Name</dt><dd><?php echo showVal($emp['bank_name']); ?></dd></div>
+                <div class="info-row"><dt>Account Number</dt><dd><?php echo showVal($emp['bank_account_number']); ?></dd></div>
+                <div class="info-row"><dt>IFSC Code</dt><dd><?php echo showVal($emp['ifsc_code']); ?></dd></div>
+            </dl>
+            <?php
+            $salHistView = getEmployeeSalaryHistory($id);
+            if ($salHistView):
+            ?>
+            <div class="view-subhead" style="margin-top:16px;">Salary Revision History</div>
+            <div class="salary-history-box">
+                <div class="salary-history-scroll">
+                    <table class="salary-history-table">
+                        <thead>
+                            <tr>
+                                <th class="col-eff">Effective Date</th>
+                                <th class="col-amt">Old Salary</th>
+                                <th class="col-chg">Change</th>
+                                <th class="col-amt">New Salary</th>
+                                <th class="col-note">Note</th>
+                                <th class="col-by">Changed By (Login)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($salHistView as $h):
+                                $chg = (float) $h['change_amount'];
+                                $cls = $chg >= 0 ? 'is-up' : 'is-down';
+                                ?>
+                                <tr>
+                                    <td class="col-eff"><?php echo htmlspecialchars(formatDateDisplay($h['effective_date'])); ?></td>
+                                    <td class="col-amt">₹ <?php echo number_format((float) $h['old_salary'], 2); ?></td>
+                                    <td class="col-chg <?php echo $cls; ?>"><?php echo ($chg >= 0 ? '+' : '') . number_format($chg, 2); ?></td>
+                                    <td class="col-amt"><strong>₹ <?php echo number_format((float) $h['new_salary'], 2); ?></strong></td>
+                                    <td class="col-note"><?php echo htmlspecialchars((string) ($h['remarks'] ?? '—')); ?></td>
+                                    <td class="col-by"><?php echo htmlspecialchars((string) ($h['changed_by_label'] ?? '—')); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+
+    <?php else: ?>
+        <div class="view-grid">
+            <div class="view-card">
+                <div class="view-card-head">
+                    <i class="fa-solid fa-id-card"></i>
+                    <div>
+                        <h3>Personal Information</h3>
+                        <p>Identity &amp; contact details</p>
+                    </div>
+                </div>
+                <dl class="info-list">
+                    <div class="info-row is-highlight">
+                        <dt>Employee Full Name</dt>
+                        <dd><?php echo showVal($emp['employee_name']); ?></dd>
+                    </div>
+                    <div class="info-row"><dt>Father / Husband Name</dt><dd><?php echo showVal($emp['father_husband_name']); ?></dd></div>
+                    <div class="info-row"><dt>Date of Birth</dt><dd><?php echo showVal(formatDateDisplay($emp['date_of_birth'])); ?></dd></div>
+                    <div class="info-row"><dt>Gender</dt><dd><?php echo showVal($emp['gender'] ?? ''); ?></dd></div>
+                    <div class="info-row"><dt>Blood Group</dt><dd><?php echo showVal($emp['blood_group'] ?? ''); ?></dd></div>
+                    <div class="info-row">
+                        <dt>Marital Status</dt>
+                        <dd>
+                            <?php
+                            $ms = (string) ($emp['marital_status'] ?? '');
+                            echo showVal($ms);
+                            if ($ms === 'Other' && !empty($emp['marital_remark'])) {
+                                echo ' — ' . showVal($emp['marital_remark']);
+                            }
+                            ?>
+                        </dd>
+                    </div>
+                </dl>
+                <div class="view-subhead">Contact</div>
+                <dl class="info-list">
+                    <div class="info-row"><dt>Mobile Number</dt><dd><?php echo showVal($emp['mobile_number']); ?></dd></div>
+                    <div class="info-row"><dt>Emergency Mobile</dt><dd><?php echo showVal($emp['emergency_mobile']); ?></dd></div>
+                    <div class="info-row"><dt>Emergency Contact Name</dt><dd><?php echo showVal($emp['emergency_contact_name'] ?? ''); ?></dd></div>
+                    <div class="info-row"><dt>Emergency Contact Relation</dt><dd><?php echo showVal($emp['emergency_contact_relation'] ?? ''); ?></dd></div>
+                    <div class="info-row"><dt>Office Mail ID</dt><dd class="is-email"><?php echo showVal($emp['office_email'] ?? ''); ?></dd></div>
+                    <div class="info-row"><dt>Office Mobile</dt><dd><?php echo showVal($emp['office_mobile'] ?? ''); ?></dd></div>
+                </dl>
+                <div class="view-subhead">Documents</div>
+                <dl class="info-list">
+                    <div class="info-row">
+                        <dt>Photo</dt>
+                        <dd>
+                            <?php if ($photoUrl !== ''): ?>
+                                <a href="<?php echo htmlspecialchars($photoUrl); ?>" target="_blank" rel="noopener" class="doc-view-link">
+                                    <i class="fa-solid fa-image"></i> View Photo
+                                </a>
+                            <?php else: ?>
+                                -
+                            <?php endif; ?>
+                        </dd>
+                    </div>
+                    <div class="info-row">
+                        <dt>Aadhar Number</dt>
+                        <dd>
+                            <?php echo showVal($emp['aadhar_number']); ?>
+                            <?php echo employeeDocumentViewHtml($emp['aadhar_file'] ?? ''); ?>
+                        </dd>
+                    </div>
+                    <div class="info-row">
+                        <dt>PAN Number</dt>
+                        <dd>
+                            <?php echo showVal($emp['pan_number']); ?>
+                            <?php echo employeeDocumentViewHtml($emp['pan_file'] ?? ''); ?>
+                        </dd>
+                    </div>
+                </dl>
+                <div class="view-subhead">Address</div>
+                <dl class="info-list">
+                    <div class="info-row"><dt>Permanent Address</dt><dd><?php echo nl2br(showVal($emp['permanent_address'])); ?></dd></div>
+                    <div class="info-row"><dt>Present Address</dt><dd><?php echo nl2br(showVal($emp['present_address'])); ?></dd></div>
+                </dl>
+            </div>
+
+            <div class="view-card">
+                <div class="view-card-head">
+                    <i class="fa-solid fa-briefcase"></i>
+                    <div>
+                        <h3>Job Information</h3>
+                        <p>Role, shift &amp; payroll basics</p>
+                    </div>
+                </div>
+                <dl class="info-list">
+                    <div class="info-row"><dt>Department</dt><dd><?php echo showVal($emp['department_name']); ?></dd></div>
+                    <div class="info-row"><dt>Emp Desk No</dt><dd><?php echo showVal($emp['desk_no'] ?? ''); ?></dd></div>
+                    <div class="info-row"><dt>Canteen Use</dt><dd><?php echo (($emp['canteen_use'] ?? 'No') === 'Yes') ? 'Yes' : 'No'; ?></dd></div>
+                    <?php if (isSalesOnFieldDepartment($emp)): ?>
+                    <div class="info-row"><dt>Assigned State</dt><dd><?php echo showVal($emp['assigned_state_name'] ?? ''); ?></dd></div>
+                    <div class="info-row"><dt>Assigned Location</dt><dd><?php echo showVal($emp['assigned_location_name'] ?? ''); ?></dd></div>
+                    <?php
+                    $locHistView = getEmployeeLocationHistory($id);
+                    if ($locHistView):
+                    ?>
+                    <div class="view-subhead" style="margin-top:12px;">Location Change History</div>
+                    <div class="salary-history-box location-history-box">
+                        <div class="salary-history-scroll">
+                            <table class="salary-history-table location-history-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-eff">Date / Time</th>
+                                        <th class="col-note">Old State / Location</th>
+                                        <th class="col-note">New State / Location</th>
+                                        <th class="col-by">Changed By (Login)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($locHistView as $h):
+                                        $oldShow = ((string) ($h['old_state_name'] ?? '') !== '' ? $h['old_state_name'] : '—')
+                                            . ' / '
+                                            . ((string) ($h['old_location_name'] ?? '') !== '' ? $h['old_location_name'] : '—');
+                                        $newShow = ((string) ($h['new_state_name'] ?? '') !== '' ? $h['new_state_name'] : '—')
+                                            . ' / '
+                                            . ((string) ($h['new_location_name'] ?? '') !== '' ? $h['new_location_name'] : '—');
+                                        $when = !empty($h['created_at']) ? formatDateTimeDisplay($h['created_at']) : '—';
+                                        ?>
+                                        <tr>
+                                            <td class="col-eff"><?php echo htmlspecialchars($when); ?></td>
+                                            <td class="col-note"><?php echo htmlspecialchars($oldShow); ?></td>
+                                            <td class="col-note"><strong><?php echo htmlspecialchars($newShow); ?></strong></td>
+                                            <td class="col-by"><?php echo htmlspecialchars((string) ($h['changed_by_label'] ?? '—')); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php endif; ?>
+                    <?php if ($showSalaryDetails): ?>
+                    <div class="info-row"><dt>Pay Type</dt><dd><?php echo showVal(payTypeLabel($emp['pay_type'] ?? 'Salary')); ?></dd></div>
+                    <?php endif; ?>
+                    <div class="info-row"><dt>Designation</dt><dd><?php echo showVal($emp['designation']); ?></dd></div>
+                </dl>
+                <div class="view-subhead">Joining &amp; status</div>
+                <dl class="info-list">
+                    <div class="info-row"><dt>Date of Joining</dt><dd><?php echo showVal(formatDateDisplay($emp['date_of_joining'])); ?></dd></div>
+                    <div class="info-row"><dt>Exit Date</dt><dd><?php echo showVal(formatDateDisplay($emp['date_of_exit'] ?? '')); ?></dd></div>
+                </dl>
+                <div class="view-subhead">Shift</div>
+                <dl class="info-list">
+                    <div class="info-row"><dt>Shift Type</dt><dd><span class="shift-pill <?php echo $shiftClass; ?>"><?php echo showVal($emp['shift_type']); ?></span></dd></div>
+                    <div class="info-row"><dt>Shift Time</dt><dd><?php echo showVal($emp['shift_time']); ?></dd></div>
+                </dl>
+                <?php if ($showSalaryDetails): ?>
+                <div class="view-subhead">PF &amp; salary</div>
+                <dl class="info-list">
+                    <div class="info-row"><dt>PF Deduction</dt><dd><?php echo showVal($emp['pf_deduction']); ?></dd></div>
+                    <div class="info-row"><dt>PF Start Date</dt><dd><?php echo showVal(formatDateDisplay($emp['pf_start_date'] ?? '')); ?></dd></div>
+                    <div class="info-row"><dt>Employee PF Contribution</dt><dd><?php
+                        $pec = $emp['pf_employee_contribution'] ?? '';
+                        echo ($pec !== null && $pec !== '') ? ('₹ ' . number_format((float) $pec, 2)) : '-';
+                    ?></dd></div>
+                    <div class="info-row"><dt>UAN Number</dt><dd><?php echo showVal($emp['uan_number']); ?></dd></div>
+                    <div class="info-row"><dt>Reporting Head</dt><dd><?php echo showVal($emp['reporting_head']); ?></dd></div>
+                    <div class="info-row"><dt>Decided Salary</dt><dd><?php echo $salaryShow; ?></dd></div>
+                </dl>
+                <?php else: ?>
+                <div class="view-subhead">Other</div>
+                <dl class="info-list">
+                    <div class="info-row"><dt>Reporting Head</dt><dd><?php echo showVal($emp['reporting_head']); ?></dd></div>
+                    <div class="info-row"><dt>UAN Number</dt><dd><?php echo showVal($emp['uan_number']); ?></dd></div>
+                </dl>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($showBankDetails): ?>
+            <div class="view-card">
+                <div class="view-card-head">
+                    <i class="fa-solid fa-building-columns"></i>
+                    <div>
+                        <h3>Bank Information</h3>
+                        <p>Salary account details</p>
+                    </div>
+                </div>
+                <dl class="info-list">
+                    <div class="info-row"><dt>Bank Name</dt><dd><?php echo showVal($emp['bank_name']); ?></dd></div>
+                    <div class="info-row is-highlight"><dt>Account Number</dt><dd><?php echo showVal($emp['bank_account_number']); ?></dd></div>
+                    <div class="info-row"><dt>IFSC Code</dt><dd><?php echo showVal($emp['ifsc_code']); ?></dd></div>
+                    <div class="info-row"><dt>Branch Address</dt><dd><?php echo nl2br(showVal($emp['bank_branch_address'])); ?></dd></div>
+                </dl>
+            </div>
+            <?php endif; ?>
+
+            <div class="view-card">
+                <div class="view-card-head">
+                    <i class="fa-solid fa-clipboard-list"></i>
+                    <div>
+                        <h3>Other Details</h3>
+                        <p>Benefits &amp; notes</p>
+                    </div>
+                </div>
+                <dl class="info-list">
+                    <div class="info-row"><dt>Week-off Day</dt><dd><?php echo showVal($emp['week_off_day']); ?></dd></div>
+                    <div class="info-row"><dt>Week-off Benefits</dt><dd><?php echo showVal($emp['week_off_benefits']); ?></dd></div>
+                    <div class="info-row"><dt>Holiday Benefits</dt><dd><?php echo showVal($emp['holiday_benefits']); ?></dd></div>
+                    <div class="info-row"><dt>Overtime Benefits</dt><dd><?php echo showVal($emp['overtime_benefits']); ?></dd></div>
+                    <div class="info-row"><dt>Extra Note</dt><dd><?php echo nl2br(showVal($emp['extra_note'])); ?></dd></div>
+                </dl>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($canEditOwnPhoto): ?>
+    <div class="emp-photo-crop-modal" id="empPhotoCropModal" hidden>
+        <div class="emp-photo-crop-dialog" role="dialog" aria-modal="true" aria-labelledby="empPhotoCropTitle">
+            <div class="emp-photo-crop-head">
+                <h3 id="empPhotoCropTitle"><i class="fa-solid fa-crop-simple"></i> Crop Photo</h3>
+                <button type="button" class="emp-photo-crop-close" id="empPhotoCropClose" aria-label="Close">&times;</button>
+            </div>
+            <div class="emp-photo-crop-body">
+                <div class="emp-photo-crop-stage">
+                    <img id="empPhotoCropImage" alt="Crop preview">
+                </div>
+                <p class="emp-photo-crop-hint">Drag to reposition · scroll / pinch to zoom · square crop for profile</p>
+            </div>
+            <div class="emp-photo-crop-actions">
+                <button type="button" class="btn-secondary" id="empPhotoCropCancel">Cancel</button>
+                <button type="button" class="btn-secondary" id="empPhotoCropRotate" title="Rotate">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+                <button type="button" class="btn-primary" id="empPhotoCropApply">
+                    <i class="fa-solid fa-check"></i> Use Photo
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <div class="related-doc-lightbox" id="relatedDocLightbox" hidden>
+        <div class="related-doc-lightbox-inner" role="dialog" aria-modal="true" aria-labelledby="relatedDocLightboxTitle">
+            <div class="related-doc-lightbox-head">
+                <strong id="relatedDocLightboxTitle">Document</strong>
+                <button type="button" class="related-doc-lightbox-close" id="relatedDocLightboxClose" aria-label="Close">&times;</button>
+            </div>
+            <div class="related-doc-lightbox-body" id="relatedDocLightboxBody"></div>
+        </div>
+    </div>
+</main>
+
+<script>
+    window.EMP_TOAST_MSG  = <?php echo json_encode($toastMsg); ?>;
+    window.EMP_TOAST_TYPE = <?php echo json_encode($toastType); ?>;
+    (function () {
+        var btn = document.getElementById('empLettersBtn');
+        var menu = document.getElementById('empLettersMenu');
+        var wrap = btn ? btn.closest('.emp-letters-dd') : null;
+        if (!btn || !menu || !wrap) return;
+
+        function closeMenu() {
+            menu.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+            wrap.classList.remove('is-open');
+        }
+        function openMenu() {
+            menu.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            wrap.classList.add('is-open');
+        }
+
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (menu.hidden) openMenu();
+            else closeMenu();
+        });
+        document.addEventListener('click', function (e) {
+            if (!wrap.contains(e.target)) closeMenu();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeMenu();
+        });
+    })();
+</script>
+
+<?php
+$extraJs = [
+    'https://code.jquery.com/jquery-3.7.1.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js',
+    'assets/js/employees.js',
+    'assets/js/emp_photo_view.js',
+    'assets/js/related_doc_view.js',
+];
+if ($canEditOwnPhoto) {
+    $extraJs[] = 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js';
+    $extraJs[] = 'assets/js/emp_photo_crop.js';
+}
+require_once __DIR__ . '/../includes/footer.php';
+?>

@@ -1,0 +1,464 @@
+<?php
+/**
+ * Monthly salary register — Normal / Jobwork Govt / Jobwork Actual / Contractor Main
+ */
+
+require_once __DIR__ . '/../config/app.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/employee_helper.php';
+require_once __DIR__ . '/../includes/master_helper.php';
+require_once __DIR__ . '/../includes/salary_register_helper.php';
+require_once __DIR__ . '/../includes/payroll_reports_helper.php';
+require_once __DIR__ . '/../includes/settings.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/permission_helper.php';
+require_once __DIR__ . '/../includes/payroll_approval_helper.php';
+
+requireLogin();
+
+$deptId = isset($_GET['department_id']) ? (int) $_GET['department_id'] : 0;
+requirePayrollRegisterAccess($deptId);
+ensurePayrollApprovalTables();
+$employeeId = isset($_GET['employee_id']) ? (int) $_GET['employee_id'] : 0;
+$month = (int) ($_GET['month'] ?? date('n'));
+$year = (int) ($_GET['year'] ?? date('Y'));
+$type = (string) ($_GET['type'] ?? 'salary');
+$view = (($_GET['view'] ?? 'department') === 'employee') ? 'employee' : 'department';
+if ($month < 1 || $month > 12) {
+    $month = (int) date('n');
+}
+if (!isset(salaryRegisterTypes()[$type])) {
+    $type = 'salary';
+}
+
+$lock = getSalaryRegisterLock($month, $year, $type, $deptId);
+$isLocked = $lock !== null;
+$approvalStatus = $isLocked ? (string) ($lock['approval_status'] ?? 'approved') : '';
+$approvalLabels = payrollApprovalStatusLabels();
+$myApprovalAction = $isLocked ? payrollApprovalPendingActionFor($lock) : '';
+$approvalLog = fetchPayrollApprovalLog($month, $year, $type, $deptId);
+
+$department = $deptId > 0 ? getDepartmentById($deptId) : null;
+$monthDays = (int) date('t', strtotime(sprintf('%04d-%02d-01', $year, $month)));
+
+if ($isLocked) {
+    $snap = json_decode((string) ($lock['snapshot_json'] ?? ''), true);
+    $groups = (is_array($snap) && !empty($snap['groups'])) ? $snap['groups'] : [];
+    if ($employeeId > 0) {
+        foreach ($groups as &$g) {
+            $g['rows'] = array_values(array_filter($g['rows'] ?? [], static function ($r) use ($employeeId) {
+                return (int) ($r['employee_id'] ?? 0) === $employeeId;
+            }));
+        }
+        unset($g);
+    }
+} else {
+    $groups = getSalaryRegisterData($type, $month, $year, $deptId, $employeeId);
+}
+
+if ($view === 'employee' && $type !== 'contractor_main') {
+    $flat = [];
+    foreach ($groups as $g) {
+        foreach ($g['rows'] as $row) {
+            $flat[] = $row;
+        }
+    }
+    usort($flat, function ($a, $b) {
+        return strcasecmp($a['employee_name'], $b['employee_name']);
+    });
+    $groups = [[
+        'title' => salaryRegisterTypes()[$type] . ' · Employee wise',
+        'subtitle' => $department ? $department['department_name'] : 'All departments',
+        'mode' => $type,
+        'rows' => $flat,
+    ]];
+}
+
+$filterPay = 'Salary';
+if ($type === 'jobwork_govt' || $type === 'jobwork_actual') {
+    $filterPay = 'Jobwork';
+} elseif ($type === 'contractor_main') {
+    $filterPay = 'ContractorMain';
+}
+$empOptions = fetchSalaryRegisterEmployees($deptId, 0, [$filterPay]);
+
+$pageTitle = 'Salary Register';
+$useSidebar = true;
+$sidebarMode = $deptId > 0 ? 'department' : 'workspace';
+$sidebarDeptId = $deptId;
+$sidebarActive = 'salary_register';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$monthLabel = date('F Y', mktime(0, 0, 0, $month, 1, $year));
+$isActual = ($type === 'jobwork_actual');
+
+$excelQs = http_build_query([
+    'type' => $type,
+    'month' => $month,
+    'year' => $year,
+    'department_id' => $deptId,
+    'employee_id' => $employeeId,
+    'view' => $view,
+]);
+
+require_once __DIR__ . '/../includes/header.php';
+?>
+
+<main class="dashboard-main">
+    <div class="page-toolbar flex-between">
+        <?php if ($deptId > 0): ?>
+            <a href="<?php echo app_url('department.php?id=' . $deptId); ?>" class="back-link">
+                <i class="fa-solid fa-arrow-left"></i> Back to Modules
+            </a>
+        <?php else: ?>
+            <a href="<?php echo app_url('dashboard.php'); ?>" class="back-link">
+                <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+            </a>
+        <?php endif; ?>
+        <div class="register-toolbar-actions">
+            <?php if ($isLocked): ?>
+                <a class="btn-primary" href="<?php echo app_url('payroll/neft.php?' . $excelQs); ?>">
+                    <i class="fa-solid fa-building-columns"></i> NEFT Sheet
+                </a>
+            <?php endif; ?>
+            <a class="btn-secondary" href="<?php echo app_url('payroll/register_excel.php?' . $excelQs); ?>">
+                <i class="fa-solid fa-file-excel"></i> Excel
+            </a>
+            <a class="btn-primary" href="<?php echo app_url('payroll/register_print.php?' . $excelQs); ?>" target="_blank">
+                <i class="fa-solid fa-print"></i> Print
+            </a>
+        </div>
+    </div>
+
+    <?php if (isset($_GET['lock_msg'])): ?>
+        <?php
+        $lm = (string) $_GET['lock_msg'];
+        $lockNote = '';
+        if ($lm === 'unlocked') {
+            $lockNote = 'Register unlocked. You can edit attendance / regenerate and lock again.';
+        } elseif ($lm === 'locked') {
+            $lockNote = 'Salary Register locked and sent for approval.';
+        } elseif ($lm === 'appr_pending_accounts') {
+            $lockNote = 'Checked and approved. Sent to Accounts for final approval.';
+        } elseif ($lm === 'appr_approved') {
+            $lockNote = 'Approved. NEFT sheet is now final.';
+        } elseif ($lm === 'appr_sent_back') {
+            $lockNote = 'Sent back to Payroll Manager. Register is unlocked for correction.';
+        } elseif ($lm === 'error') {
+            $lockNote = 'Lock failed: ' . htmlspecialchars((string) ($_GET['lock_err'] ?? 'Unknown error'));
+        }
+        ?>
+        <?php if ($lockNote !== ''): ?>
+            <div class="form-page-card" style="margin-bottom:12px;border-left:4px solid <?php echo $lm === 'error' ? '#ef4444' : '#16a085'; ?>;">
+                <p style="margin:0;"><?php echo $lockNote; ?></p>
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
+
+    <div class="sr-print-heading">
+        <strong><?php echo htmlspecialchars($companyName); ?></strong>
+        — Salary Register · <?php echo htmlspecialchars($monthLabel); ?>
+    </div>
+
+    <div class="form-page-card no-print-shadow">
+        <div class="form-page-header">
+            <div>
+                <h1>Salary Register <?php if ($isLocked): ?><span class="status-pill status-deactive" style="vertical-align:middle;"><i class="fa-solid fa-lock"></i> Locked</span><?php endif; ?></h1>
+                <p><?php echo htmlspecialchars($companyName); ?> · <?php echo htmlspecialchars($monthLabel); ?> · Month days <?php echo $monthDays; ?></p>
+            </div>
+        </div>
+
+        <?php if ($isLocked): ?>
+            <div class="ops-live-summary" style="margin-bottom:12px;">
+                <span class="ops-chip"><i class="fa-solid fa-lock"></i> Finalized <?php echo htmlspecialchars((string) ($lock['locked_at'] ?? '')); ?></span>
+                <span class="ops-chip"><?php echo (int) ($lock['employee_count'] ?? 0); ?> employees</span>
+                <span class="ops-chip">Net ₹ <?php echo number_format((float) ($lock['total_net'] ?? 0), 2); ?></span>
+                <span class="ops-chip"><?php echo (int) ($lock['neft_count'] ?? 0); ?> NEFT rows</span>
+                <span class="ops-chip" style="font-weight:700;color:<?php echo $approvalStatus === 'approved' ? '#047857' : '#b45309'; ?>;">
+                    <i class="fa-solid <?php echo $approvalStatus === 'approved' ? 'fa-circle-check' : 'fa-hourglass-half'; ?>"></i>
+                    <?php echo htmlspecialchars($approvalLabels[$approvalStatus] ?? $approvalStatus); ?>
+                </span>
+            </div>
+            <?php if ($myApprovalAction !== ''): ?>
+            <div class="form-page-card" style="margin-bottom:12px;border-left:4px solid #0c54a0;background:#f6f9fd;">
+                <p style="margin:0 0 8px;">
+                    <strong><i class="fa-solid fa-user-check" style="color:#0c54a0;"></i>
+                    <?php echo $myApprovalAction === 'check' ? 'Your check is pending (HR Head)' : 'Your final approval is pending (Accounts)'; ?></strong>
+                    · Review the register below, then approve or send back with a remark.
+                </p>
+                <form method="POST" action="<?php echo app_url('payroll/approval_action.php'); ?>" class="employee-form">
+                    <input type="hidden" name="lock_id" value="<?php echo (int) $lock['id']; ?>">
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <textarea name="remarks" class="form-control" rows="2" placeholder="Remark (required for Send Back)"></textarea>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <?php if ($myApprovalAction === 'check'): ?>
+                            <button type="submit" name="action" value="check_approve" class="btn-primary" onclick="return confirm('Approve this salary register and send it to Accounts?');">
+                                <i class="fa-solid fa-check"></i> Checked · Approve
+                            </button>
+                        <?php else: ?>
+                            <button type="submit" name="action" value="accounts_done" class="btn-primary" onclick="return confirm('Mark Done? NEFT sheet will become final.');">
+                                <i class="fa-solid fa-check-double"></i> Done · Finalize NEFT
+                            </button>
+                        <?php endif; ?>
+                        <button type="submit" name="action" value="send_back" class="btn-secondary" onclick="return confirm('Send back to Payroll Manager? The register will be unlocked.');">
+                            <i class="fa-solid fa-rotate-left"></i> Send Back
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <?php endif; ?>
+            <div class="form-actions" style="margin-bottom:12px;gap:8px;">
+                <a class="btn-primary" href="<?php echo app_url('payroll/neft.php?' . $excelQs); ?>">
+                    <i class="fa-solid fa-building-columns"></i> <?php echo $approvalStatus === 'approved' ? 'Open NEFT Sheet' : 'NEFT Sheet (Draft)'; ?>
+                </a>
+                <?php if (function_exists('isAdmin') && isAdmin()): ?>
+                    <form method="POST" action="<?php echo app_url('payroll/register_lock.php'); ?>" style="display:inline;" onsubmit="return confirm('Unlock this finalized register?');">
+                        <input type="hidden" name="action" value="unlock">
+                        <input type="hidden" name="type" value="<?php echo htmlspecialchars($type); ?>">
+                        <input type="hidden" name="month" value="<?php echo $month; ?>">
+                        <input type="hidden" name="year" value="<?php echo $year; ?>">
+                        <input type="hidden" name="department_id" value="<?php echo $deptId; ?>">
+                        <button type="submit" class="btn-secondary"><i class="fa-solid fa-lock-open"></i> Unlock (Admin)</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        <?php else: ?>
+            <?php if (payrollCanLock()): ?>
+            <div class="form-actions" style="margin-bottom:12px;">
+                <form method="POST" action="<?php echo app_url('payroll/register_lock.php'); ?>" onsubmit="return confirm('Lock this Salary Register and send it for approval? It cannot be changed unless it is sent back or Admin unlocks it.');">
+                    <input type="hidden" name="action" value="lock">
+                    <input type="hidden" name="type" value="<?php echo htmlspecialchars($type); ?>">
+                    <input type="hidden" name="month" value="<?php echo $month; ?>">
+                    <input type="hidden" name="year" value="<?php echo $year; ?>">
+                    <input type="hidden" name="department_id" value="<?php echo $deptId; ?>">
+                    <button type="submit" class="btn-primary"><i class="fa-solid fa-lock"></i> Lock &amp; Send for Approval</button>
+                </form>
+            </div>
+            <?php endif; ?>
+        <?php endif; ?>
+
+        <?php if ($approvalLog): ?>
+            <?php
+            $logLabels = [
+                'locked' => 'Locked by Maker',
+                'checked' => 'Checked & approved (HR Head)',
+                'approved' => 'Done (Accounts) · NEFT final',
+                'sent_back_checker' => 'Sent back by HR Head',
+                'sent_back_accounts' => 'Sent back by Accounts',
+                'unlocked_admin' => 'Unlocked by Admin',
+            ];
+            ?>
+            <details class="form-page-card" style="margin-bottom:12px;padding:10px 14px;" <?php echo !$isLocked ? 'open' : ''; ?>>
+                <summary style="cursor:pointer;font-weight:700;"><i class="fa-solid fa-clock-rotate-left" style="color:#0c54a0;"></i> Approval History (<?php echo count($approvalLog); ?>)</summary>
+                <ul style="margin:10px 0 0;padding-left:18px;line-height:1.7;">
+                    <?php foreach ($approvalLog as $lg): ?>
+                        <li>
+                            <strong><?php echo htmlspecialchars($logLabels[$lg['action']] ?? $lg['action']); ?></strong>
+                            · <?php echo htmlspecialchars(payrollUserDisplayName($lg['user_id']) ?: '-'); ?>
+                            · <small><?php echo htmlspecialchars((string) $lg['created_at']); ?></small>
+                            <?php if (trim((string) $lg['remarks']) !== ''): ?>
+                                <br><em><?php echo htmlspecialchars((string) $lg['remarks']); ?></em>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </details>
+        <?php endif; ?>
+
+        <form method="GET" class="employee-form register-filters">
+            <div class="form-grid form-grid-3">
+                <div class="form-group">
+                    <label>Register Type</label>
+                    <select name="type" class="form-control" onchange="this.form.submit()">
+                        <?php foreach (salaryRegisterTypes() as $key => $label): ?>
+                            <option value="<?php echo htmlspecialchars($key); ?>" <?php echo $type === $key ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>View</label>
+                    <select name="view" class="form-control" onchange="this.form.submit()">
+                        <option value="department" <?php echo $view === 'department' ? 'selected' : ''; ?>>Department wise</option>
+                        <option value="employee" <?php echo $view === 'employee' ? 'selected' : ''; ?>>Employee wise</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Department</label>
+                    <select name="department_id" class="form-control" onchange="this.form.submit()">
+                        <option value="0">All departments</option>
+                        <?php foreach (getActiveMasterRows('departments', 'sort_order ASC, department_name ASC') as $d): ?>
+                            <option value="<?php echo (int) $d['id']; ?>" <?php echo $deptId === (int) $d['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($d['department_name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Month</label>
+                    <select name="month" class="form-control" onchange="this.form.submit()">
+                        <?php for ($m = 1; $m <= 12; $m++): ?>
+                            <option value="<?php echo $m; ?>" <?php echo $m === $month ? 'selected' : ''; ?>>
+                                <?php echo date('F', mktime(0, 0, 0, $m, 1)); ?>
+                            </option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Year</label>
+                    <input type="number" name="year" class="form-control" value="<?php echo $year; ?>" onchange="this.form.submit()">
+                </div>
+                <div class="form-group">
+                    <label>Employee</label>
+                    <select name="employee_id" class="form-control" onchange="this.form.submit()">
+                        <option value="0">All employees</option>
+                        <?php foreach ($empOptions as $eo): ?>
+                            <option value="<?php echo (int) $eo['id']; ?>" <?php echo $employeeId === (int) $eo['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars(($eo['employee_code'] ?? '') . ' — ' . ($eo['employee_name'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+        </form>
+
+        <?php if ($type === 'jobwork_govt'): ?>
+            <p class="form-hint">Jobwork <strong>Government</strong>: Actual (Ops Qty × Rate) ÷ <?php echo $monthDays; ?> month days × paid days from <strong>Attendance Report</strong> (Present + Week Off + Holiday + P.L. + S.L. + D.L.). Enter Manual Attendance first, then open this register / Generate Salary.</p>
+        <?php elseif ($type === 'jobwork_actual'): ?>
+            <p class="form-hint">Jobwork <strong>Regular / Actual</strong>: full production amount (Qty × Rate) from Operations Rate List. No attendance day split — contract base earning.</p>
+        <?php elseif ($type === 'contractor_main'): ?>
+            <p class="form-hint">Contractor Main: under employees, government-style day split using each member’s attendance. Link Jobwork employees to a Contractor Main on the employee form.</p>
+        <?php else: ?>
+            <p class="form-hint">Normal <strong>Fixed Salary</strong>: Gross = Decided Salary × (Present + Week Off + Holiday + P.L. + S.L. + D.L.) ÷ month days — same totals as <strong>Attendance Report</strong> (employee week-off day for this month).</p>
+        <?php endif; ?>
+    </div>
+
+    <?php foreach ($groups as $g): ?>
+        <?php
+        $rows = $g['rows'];
+        $sumGross = 0;
+        $sumNet = 0;
+        $sumActual = 0;
+        foreach ($rows as $r) {
+            $sumGross += (float) $r['gross'];
+            $sumNet += (float) $r['net'];
+            $sumActual += (float) $r['actual'];
+        }
+        ?>
+        <div class="salary-register-sheet">
+            <div class="salary-register-banner">
+                <strong><?php echo htmlspecialchars($g['title']); ?></strong>
+                <span><?php echo htmlspecialchars($g['subtitle']); ?> · <?php echo htmlspecialchars($monthLabel); ?></span>
+            </div>
+            <div class="table-wrap">
+                <table class="salary-register-table">
+                    <thead>
+                        <tr class="sr-group-row">
+                            <th colspan="5"></th>
+                            <?php if ($isActual): ?>
+                                <th colspan="3" class="sr-earn">Earning</th>
+                            <?php else: ?>
+                                <th colspan="7" class="sr-earn">Earning</th>
+                                <th colspan="2" class="sr-gross">Gross</th>
+                            <?php endif; ?>
+                            <th colspan="4" class="sr-ded">Deduction</th>
+                            <th colspan="3" class="sr-net">NET</th>
+                            <th colspan="3"></th>
+                        </tr>
+                        <tr>
+                            <th class="sr-sticky sr-sticky-1">Emp Code</th>
+                            <th class="sr-sticky sr-sticky-2">Employee Name</th>
+                            <th>Desig.</th>
+                            <th>D.O.J.</th>
+                            <th>UAN</th>
+                            <?php if ($isActual): ?>
+                                <th>Qty</th>
+                                <th>Actual Amt</th>
+                                <th>Gross</th>
+                            <?php else: ?>
+                                <th>Salary</th>
+                                <th>P.Days</th>
+                                <th>W.Off</th>
+                                <th>Holiday</th>
+                                <th>P.L.</th>
+                                <th>S.L.</th>
+                                <th>D.L.</th>
+                                <th>Total Days</th>
+                                <th>Gross</th>
+                            <?php endif; ?>
+                            <th>Emp PF</th>
+                            <th>P.T.</th>
+                            <th>Loan</th>
+                            <th>Adv.</th>
+                            <th>Tot. Ded.</th>
+                            <th>Arrears</th>
+                            <th>Net</th>
+                            <th>A/C No.</th>
+                            <th>IFSC</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php if (!$rows): ?>
+                        <tr><td colspan="25" class="empty-cell">No employees for this register.</td></tr>
+                    <?php endif; ?>
+                    <?php foreach ($rows as $r): ?>
+                        <tr>
+                            <td class="sr-sticky sr-sticky-1"><?php echo htmlspecialchars($r['employee_code'] ?: '-'); ?></td>
+                            <td class="sr-sticky sr-sticky-2">
+                                <strong><?php echo htmlspecialchars($r['employee_name']); ?></strong>
+                                <?php if ($r['main_contractor']): ?>
+                                    <div class="sr-code">Under: <?php echo htmlspecialchars($r['main_contractor']); ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo htmlspecialchars($r['designation']); ?></td>
+                            <td><?php echo htmlspecialchars($r['doj']); ?></td>
+                            <td><?php echo htmlspecialchars($r['uan'] ?: '-'); ?></td>
+                            <?php if ($isActual): ?>
+                                <td class="num"><?php echo registerNum($r['qty'], 2); ?></td>
+                                <td class="num"><?php echo registerNum($r['actual']); ?></td>
+                                <td class="num"><?php echo registerNum($r['gross']); ?></td>
+                            <?php else: ?>
+                                <td class="num"><?php echo registerNum($r['salary']); ?></td>
+                                <td class="num"><?php echo registerNum($r['present'], 1); ?></td>
+                                <td class="num"><?php echo registerNum($r['week_off'], 1); ?></td>
+                                <td class="num"><?php echo registerNum($r['holiday'] ?? 0, 1); ?></td>
+                                <td class="num"><?php echo registerNum($r['pl'], 1); ?></td>
+                                <td class="num"><?php echo registerNum($r['sl'], 1); ?></td>
+                                <td class="num"><?php echo registerNum($r['dl'], 1); ?></td>
+                                <td class="num"><?php echo registerNum($r['total_days'], 1); ?></td>
+                                <td class="num"><?php echo registerNum($r['gross']); ?></td>
+                            <?php endif; ?>
+                            <td class="num"><?php echo registerNum($r['pf']); ?></td>
+                            <td class="num"><?php echo registerNum($r['pt']); ?></td>
+                            <td class="num"><?php echo registerNum($r['loan']); ?></td>
+                            <td class="num"><?php echo registerNum($r['advance']); ?></td>
+                            <td class="num"><?php echo registerNum($r['total_deduction']); ?></td>
+                            <td class="num"><?php echo registerNum($r['arrears']); ?></td>
+                            <td class="num"><strong><?php echo registerNum($r['net']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($r['account'] ?: '-'); ?></td>
+                            <td><?php echo htmlspecialchars($r['ifsc'] ?: '-'); ?></td>
+                            <td><?php echo htmlspecialchars($r['remarks'] ?: '-'); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                    <?php if ($rows): ?>
+                    <tfoot>
+                        <tr>
+                            <td colspan="<?php echo $isActual ? 7 : 13; ?>"><strong>Total</strong></td>
+                            <td class="num"><strong><?php echo registerNum($sumGross); ?></strong></td>
+                            <td colspan="4"></td>
+                            <td></td>
+                            <td></td>
+                            <td class="num"><strong><?php echo registerNum($sumNet); ?></strong></td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tfoot>
+                    <?php endif; ?>
+                </table>
+            </div>
+        </div>
+    <?php endforeach; ?>
+</main>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

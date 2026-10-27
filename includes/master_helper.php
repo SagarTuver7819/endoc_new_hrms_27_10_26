@@ -1,0 +1,999 @@
+<?php
+/**
+ * Master Helper - ensure tables + CRUD helpers for all masters
+ */
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/masters_config.php';
+
+/**
+ * Create all master tables if missing (safe on every request)
+ */
+function ensureMasterTables($conn = null)
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    $closeAfter = false;
+    if ($conn === null) {
+        $conn = getDBConnection();
+        $closeAfter = true;
+    }
+
+    // Departments already exist from base SQL — ensure columns only
+    $conn->query("CREATE TABLE IF NOT EXISTS departments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        department_name VARCHAR(150) NOT NULL,
+        icon_class VARCHAR(80) NOT NULL DEFAULT 'fa-building',
+        icon_color VARCHAR(20) NOT NULL DEFAULT '#4A90E2',
+        sort_order INT NOT NULL DEFAULT 0,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS designations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(40) DEFAULT NULL,
+        name VARCHAR(150) NOT NULL,
+        description TEXT,
+        sort_order INT NOT NULL DEFAULT 0,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_designations_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS shifts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        shift_type ENUM('Day','Night') NOT NULL DEFAULT 'Day',
+        start_time TIME DEFAULT NULL,
+        end_time TIME DEFAULT NULL,
+        remarks TEXT,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_shifts_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS leave_types (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(40) DEFAULT NULL,
+        leave_type VARCHAR(150) NOT NULL,
+        days_allowed INT NOT NULL DEFAULT 0,
+        is_paid ENUM('Yes','No') NOT NULL DEFAULT 'Yes',
+        description TEXT,
+        accrual_type VARCHAR(20) NOT NULL DEFAULT 'yearly',
+        monthly_carry_forward TINYINT(1) NOT NULL DEFAULT 0,
+        max_concurrent_applicants INT NOT NULL DEFAULT 0,
+        allow_encashment TINYINT(1) NOT NULL DEFAULT 0,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_leave_types_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Upgrade leave_types columns on older installs
+    $ltCols = [];
+    $ltc = $conn->query('SHOW COLUMNS FROM leave_types');
+    if ($ltc) {
+        while ($r = $ltc->fetch_assoc()) {
+            $ltCols[strtolower((string) $r['Field'])] = true;
+        }
+    }
+    if (!isset($ltCols['accrual_type'])) {
+        $conn->query("ALTER TABLE leave_types ADD COLUMN accrual_type VARCHAR(20) NOT NULL DEFAULT 'yearly' AFTER description");
+    }
+    if (!isset($ltCols['monthly_carry_forward'])) {
+        $conn->query("ALTER TABLE leave_types ADD COLUMN monthly_carry_forward TINYINT(1) NOT NULL DEFAULT 0 AFTER accrual_type");
+    }
+    if (!isset($ltCols['max_concurrent_applicants'])) {
+        $conn->query("ALTER TABLE leave_types ADD COLUMN max_concurrent_applicants INT NOT NULL DEFAULT 0 AFTER monthly_carry_forward");
+    }
+    if (!isset($ltCols['allow_encashment'])) {
+        $conn->query("ALTER TABLE leave_types ADD COLUMN allow_encashment TINYINT(1) NOT NULL DEFAULT 0 AFTER max_concurrent_applicants");
+    }
+
+    $conn->query("CREATE TABLE IF NOT EXISTS holidays (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(150) NOT NULL,
+        holiday_type ENUM('Holiday','Week-Off') NOT NULL DEFAULT 'Holiday',
+        holiday_date DATE DEFAULT NULL,
+        week_day VARCHAR(20) DEFAULT NULL,
+        is_paid ENUM('Yes','No') NOT NULL DEFAULT 'Yes',
+        department_id INT DEFAULT NULL,
+        remarks TEXT,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_holidays_status (status),
+        INDEX idx_holidays_date (holiday_date),
+        INDEX idx_holidays_department (department_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Upgrade existing installs
+    $holCols = [];
+    $hc = $conn->query("SHOW COLUMNS FROM holidays");
+    if ($hc) {
+        while ($c = $hc->fetch_assoc()) {
+            $holCols[] = $c['Field'];
+        }
+    }
+    if ($holCols && !in_array('is_paid', $holCols, true)) {
+        $conn->query("ALTER TABLE holidays ADD COLUMN is_paid ENUM('Yes','No') NOT NULL DEFAULT 'Yes' AFTER week_day");
+    }
+    if ($holCols && !in_array('department_id', $holCols, true)) {
+        $conn->query("ALTER TABLE holidays ADD COLUMN department_id INT DEFAULT NULL AFTER is_paid");
+        $conn->query("ALTER TABLE holidays ADD INDEX idx_holidays_department (department_id)");
+    }
+    // Refresh columns after possible ALTERs above
+    $holCols = [];
+    $hc2 = $conn->query("SHOW COLUMNS FROM holidays");
+    if ($hc2) {
+        while ($c = $hc2->fetch_assoc()) {
+            $holCols[] = $c['Field'];
+        }
+    }
+    if ($holCols && !in_array('holiday_to_date', $holCols, true)) {
+        $conn->query("ALTER TABLE holidays ADD COLUMN holiday_to_date DATE DEFAULT NULL AFTER holiday_date");
+        $conn->query("ALTER TABLE holidays ADD INDEX idx_holidays_to_date (holiday_to_date)");
+    }
+
+    $conn->query("CREATE TABLE IF NOT EXISTS salary_components (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(40) DEFAULT NULL,
+        component_name VARCHAR(150) NOT NULL,
+        component_type ENUM('Earning','Deduction') NOT NULL DEFAULT 'Earning',
+        calculation ENUM('Fixed','Percentage') NOT NULL DEFAULT 'Fixed',
+        default_value DECIMAL(12,2) NOT NULL DEFAULT 0,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_salary_components_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS salary_slabs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(40) DEFAULT NULL,
+        slab_name VARCHAR(150) NOT NULL,
+        min_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        max_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        monthly_salary DECIMAL(12,2) NOT NULL DEFAULT 0,
+        remarks TEXT,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_salary_slabs_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $slabCount = $conn->query("SELECT COUNT(*) AS c FROM salary_slabs");
+    if ($slabCount && (int) $slabCount->fetch_assoc()['c'] === 0) {
+        $conn->query("INSERT INTO salary_slabs (code, slab_name, min_amount, max_amount, monthly_salary, remarks, status) VALUES
+            ('JW1', 'Jobwork Slab A', 0, 5000, 4500, 'Low output', 1),
+            ('JW2', 'Jobwork Slab B', 5000.01, 10000, 8500, 'Medium output', 1),
+            ('JW3', 'Jobwork Slab C', 10000.01, 20000, 16000, 'High output', 1),
+            ('JW4', 'Jobwork Slab D', 20000.01, 999999, 24000, 'Very high output', 1)");
+    }
+
+    $conn->query("CREATE TABLE IF NOT EXISTS document_types (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(40) DEFAULT NULL,
+        document_name VARCHAR(150) NOT NULL,
+        is_mandatory ENUM('Yes','No') NOT NULL DEFAULT 'No',
+        validity_days INT NOT NULL DEFAULT 0,
+        description TEXT,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_document_types_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS assets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        asset_code VARCHAR(40) DEFAULT NULL,
+        asset_name VARCHAR(150) NOT NULL,
+        category VARCHAR(100) DEFAULT NULL,
+        serial_no VARCHAR(100) DEFAULT NULL,
+        condition_status VARCHAR(40) NOT NULL DEFAULT 'Good',
+        remarks TEXT,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_assets_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS report_catalog (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(40) DEFAULT NULL,
+        report_name VARCHAR(150) NOT NULL,
+        module_name VARCHAR(100) DEFAULT NULL,
+        description TEXT,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_report_catalog_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS products (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(40) DEFAULT NULL,
+        product_name VARCHAR(150) NOT NULL,
+        category VARCHAR(100) DEFAULT NULL,
+        unit VARCHAR(40) DEFAULT 'Nos',
+        description TEXT,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_products_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS sub_departments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        department_id INT NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_subdept_dept (department_id),
+        INDEX idx_subdept_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS assigned_states (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(120) NOT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_assigned_states_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $conn->query("CREATE TABLE IF NOT EXISTS assigned_locations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        state_id INT NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_assigned_loc_state (state_id),
+        INDEX idx_assigned_loc_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    seedSubDepartmentsFromDepartments($conn);
+    seedAssignedStatesAndLocations($conn);
+
+    if ($closeAfter) {
+        $conn->close();
+    }
+}
+
+/**
+ * First-run seed: one Sub Department per Department using the department name.
+ * Extra sub-departments can be added later under the same department.
+ */
+function seedSubDepartmentsFromDepartments($conn)
+{
+    $res = $conn->query(
+        "SELECT d.id, d.department_name
+         FROM departments d
+         WHERE d.status = 1
+           AND NOT EXISTS (
+               SELECT 1 FROM sub_departments s
+               WHERE s.department_id = d.id AND s.status = 1
+           )"
+    );
+    if (!$res) {
+        return;
+    }
+    $stmt = $conn->prepare('INSERT INTO sub_departments (department_id, name, status) VALUES (?, ?, 1)');
+    while ($row = $res->fetch_assoc()) {
+        $deptId = (int) $row['id'];
+        $name = (string) $row['department_name'];
+        $stmt->bind_param('is', $deptId, $name);
+        $stmt->execute();
+    }
+    $stmt->close();
+}
+
+/**
+ * Seed common Indian states + cities (first run + fill missing cities per state).
+ */
+function seedAssignedStatesAndLocations($conn)
+{
+    $states = [
+        'Gujarat', 'Maharashtra', 'Rajasthan', 'Madhya Pradesh', 'Goa',
+        'Karnataka', 'Tamil Nadu', 'Telangana', 'Andhra Pradesh', 'Delhi',
+        'Haryana', 'Punjab', 'Uttar Pradesh', 'West Bengal', 'Kerala',
+    ];
+    $citiesByState = [
+        'Gujarat' => [
+            'Rajkot', 'Ahmedabad', 'Surat', 'Vadodara', 'Jamnagar', 'Bhavnagar', 'Morbi', 'Gandhinagar',
+            'Junagadh', 'Mehsana', 'Anand', 'Nadiad', 'Bharuch', 'Vapi', 'Navsari', 'Porbandar',
+            'Gondal', 'Jetpur', 'Amreli', 'Palanpur', 'Himmatnagar', 'Godhra', 'Dahod', 'Surendranagar',
+        ],
+        'Maharashtra' => [
+            'Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Thane', 'Aurangabad', 'Solapur', 'Kolhapur',
+            'Sangli', 'Satara', 'Ahmednagar', 'Jalgaon', 'Amravati', 'Nanded',
+        ],
+        'Rajasthan' => [
+            'Jaipur', 'Jodhpur', 'Udaipur', 'Kota', 'Ajmer', 'Bikaner', 'Alwar', 'Bhilwara', 'Sikar',
+        ],
+        'Madhya Pradesh' => [
+            'Indore', 'Bhopal', 'Jabalpur', 'Gwalior', 'Ujjain', 'Sagar', 'Ratlam', 'Dewas',
+        ],
+        'Goa' => ['Panaji', 'Margao', 'Vasco da Gama', 'Mapusa', 'Ponda'],
+        'Karnataka' => [
+            'Bengaluru', 'Mysuru', 'Mangaluru', 'Hubballi', 'Belagavi', 'Kalaburagi', 'Davangere',
+        ],
+        'Tamil Nadu' => [
+            'Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem', 'Tirunelveli', 'Erode',
+        ],
+        'Telangana' => ['Hyderabad', 'Warangal', 'Nizamabad', 'Karimnagar', 'Khammam'],
+        'Andhra Pradesh' => [
+            'Visakhapatnam', 'Vijayawada', 'Guntur', 'Nellore', 'Kurnool', 'Tirupati', 'Rajahmundry',
+        ],
+        'Delhi' => ['New Delhi', 'North Delhi', 'South Delhi', 'East Delhi', 'West Delhi', 'Central Delhi'],
+        'Haryana' => ['Gurugram', 'Faridabad', 'Panipat', 'Ambala', 'Hisar', 'Karnal', 'Rohtak'],
+        'Punjab' => ['Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala', 'Bathinda', 'Mohali'],
+        'Uttar Pradesh' => [
+            'Lucknow', 'Kanpur', 'Varanasi', 'Agra', 'Noida', 'Ghaziabad', 'Prayagraj', 'Meerut',
+        ],
+        'West Bengal' => ['Kolkata', 'Howrah', 'Durgapur', 'Asansol', 'Siliguri', 'Kharagpur'],
+        'Kerala' => ['Thiruvananthapuram', 'Kochi', 'Kozhikode', 'Thrissur', 'Kollam', 'Kannur'],
+    ];
+
+    $insState = $conn->prepare('INSERT INTO assigned_states (name, sort_order, status) VALUES (?, ?, 1)');
+    foreach ($states as $i => $name) {
+        $chk = $conn->prepare('SELECT id FROM assigned_states WHERE name = ? LIMIT 1');
+        $chk->bind_param('s', $name);
+        $chk->execute();
+        $exists = $chk->get_result()->fetch_assoc();
+        $chk->close();
+        if ($exists) {
+            continue;
+        }
+        $ord = $i + 1;
+        $insState->bind_param('si', $name, $ord);
+        $insState->execute();
+    }
+    $insState->close();
+
+    $insLoc = $conn->prepare('INSERT INTO assigned_locations (state_id, name, sort_order, status) VALUES (?, ?, ?, 1)');
+    $chkLoc = $conn->prepare(
+        'SELECT id FROM assigned_locations WHERE state_id = ? AND name = ? AND status = 1 LIMIT 1'
+    );
+    foreach ($citiesByState as $stateName => $cities) {
+        $st = $conn->prepare('SELECT id FROM assigned_states WHERE name = ? LIMIT 1');
+        $st->bind_param('s', $stateName);
+        $st->execute();
+        $srow = $st->get_result()->fetch_assoc();
+        $st->close();
+        if (!$srow) {
+            continue;
+        }
+        $stateId = (int) $srow['id'];
+        foreach ($cities as $i => $city) {
+            $chkLoc->bind_param('is', $stateId, $city);
+            $chkLoc->execute();
+            if ($chkLoc->get_result()->fetch_assoc()) {
+                continue;
+            }
+            $ord = $i + 1;
+            $insLoc->bind_param('isi', $stateId, $city, $ord);
+            $insLoc->execute();
+        }
+    }
+    $insLoc->close();
+    $chkLoc->close();
+}
+
+function getAssignedLocationsByState($stateId, $conn = null)
+{
+    $closeAfter = false;
+    if ($conn === null) {
+        $conn = getDBConnection();
+        $closeAfter = true;
+        ensureMasterTables($conn);
+    }
+    $stateId = (int) $stateId;
+    $rows = [];
+    if ($stateId > 0) {
+        $stmt = $conn->prepare(
+            'SELECT id, state_id, name FROM assigned_locations
+             WHERE status = 1 AND state_id = ?
+             ORDER BY sort_order ASC, name ASC'
+        );
+        $stmt->bind_param('i', $stateId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $rows[] = $r;
+        }
+        $stmt->close();
+    }
+    if ($closeAfter) {
+        $conn->close();
+    }
+    return $rows;
+}
+
+function getSubDepartmentsByDepartment($departmentId, $conn = null)
+{
+    $closeAfter = false;
+    if ($conn === null) {
+        $conn = getDBConnection();
+        $closeAfter = true;
+        ensureMasterTables($conn);
+    }
+    $departmentId = (int) $departmentId;
+    $rows = [];
+    if ($departmentId > 0) {
+        $stmt = $conn->prepare(
+            'SELECT id, department_id, name FROM sub_departments
+             WHERE status = 1 AND department_id = ?
+             ORDER BY name ASC'
+        );
+        $stmt->bind_param('i', $departmentId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+    }
+    if ($closeAfter) {
+        $conn->close();
+    }
+    return $rows;
+}
+
+function getSubDepartmentNameById($id, $departmentId = 0, $conn = null)
+{
+    $closeAfter = false;
+    if ($conn === null) {
+        $conn = getDBConnection();
+        $closeAfter = true;
+    }
+    $id = (int) $id;
+    $name = '';
+    if ($id > 0) {
+        if ($departmentId > 0) {
+            $stmt = $conn->prepare(
+                'SELECT name FROM sub_departments WHERE id = ? AND department_id = ? AND status = 1 LIMIT 1'
+            );
+            $deptId = (int) $departmentId;
+            $stmt->bind_param('ii', $id, $deptId);
+        } else {
+            $stmt = $conn->prepare('SELECT name FROM sub_departments WHERE id = ? AND status = 1 LIMIT 1');
+            $stmt->bind_param('i', $id);
+        }
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $name = (string) ($row['name'] ?? '');
+    }
+    if ($closeAfter) {
+        $conn->close();
+    }
+    return $name;
+}
+
+/**
+ * Count active rows for a master table
+ */
+function countMasterRows($table)
+{
+    $conn = getDBConnection();
+    ensureMasterTables($conn);
+    $table = preg_replace('/[^a-z0-9_]/', '', $table);
+    $res = $conn->query("SELECT COUNT(*) AS c FROM `{$table}` WHERE status = 1");
+    $c = $res ? (int) $res->fetch_assoc()['c'] : 0;
+    $conn->close();
+    return $c;
+}
+
+/**
+ * Get one master row by id
+ */
+function getMasterRow($table, $id)
+{
+    $conn = getDBConnection();
+    ensureMasterTables($conn);
+    $table = preg_replace('/[^a-z0-9_]/', '', $table);
+    $id = (int) $id;
+    $stmt = $conn->prepare("SELECT * FROM `{$table}` WHERE id = ? LIMIT 1");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $conn->close();
+    return $row;
+}
+
+/**
+ * Active master rows for dropdowns
+ */
+function getActiveMasterRows($table, $orderBy = 'id ASC')
+{
+    $conn = getDBConnection();
+    ensureMasterTables($conn);
+    $table = preg_replace('/[^a-z0-9_]/', '', $table);
+    $orderBy = preg_replace('/[^a-z0-9_, ]/', '', $orderBy);
+    if ($orderBy === '') {
+        $orderBy = 'id ASC';
+    }
+    $rows = [];
+    $res = $conn->query("SELECT * FROM `{$table}` WHERE status = 1 ORDER BY {$orderBy}");
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+    }
+    $conn->close();
+    return $rows;
+}
+
+/**
+ * Soft delete master row
+ */
+function softDeleteMasterRow($table, $id)
+{
+    $conn = getDBConnection();
+    ensureMasterTables($conn);
+    $table = preg_replace('/[^a-z0-9_]/', '', $table);
+    $id = (int) $id;
+    $stmt = $conn->prepare("UPDATE `{$table}` SET status = 0 WHERE id = ?");
+    $stmt->bind_param('i', $id);
+    $ok = $stmt->execute();
+    $stmt->close();
+    $conn->close();
+    return $ok;
+}
+
+/**
+ * Collect & sanitize POST values from master field config
+ */
+function collectMasterPostData(array $config, array $post)
+{
+    $data = [];
+    foreach ($config['fields'] as $field) {
+        $name = $field['name'];
+        $raw = $post[$name] ?? ($field['default'] ?? '');
+        if (is_string($raw)) {
+            $raw = trim($raw);
+        }
+
+        $type = $field['type'];
+        if ($type === 'number') {
+            if ($raw === '' || $raw === null) {
+                $data[$name] = isset($field['default']) ? $field['default'] : 0;
+            } else {
+                $data[$name] = (strpos((string) ($field['step'] ?? ''), '.') !== false)
+                    ? (float) $raw
+                    : (int) $raw;
+            }
+        } elseif ($type === 'date') {
+            $data[$name] = ($raw === '' || $raw === null) ? null : parseDateInput($raw);
+        } elseif ($type === 'time') {
+            $data[$name] = ($raw === '') ? null : $raw;
+        } else {
+            $data[$name] = $raw;
+        }
+    }
+    return $data;
+}
+
+/**
+ * Validate required fields
+ */
+function validateMasterData(array $config, array $data)
+{
+    foreach ($config['fields'] as $field) {
+        if (!empty($field['required'])) {
+            $v = $data[$field['name']] ?? '';
+            if ($v === '' || $v === null) {
+                return $field['label'] . ' is required.';
+            }
+        }
+    }
+    return '';
+}
+
+/**
+ * Insert or update master row
+ */
+function saveMasterRow(array $config, array $data, $id = 0)
+{
+    $conn = getDBConnection();
+    ensureMasterTables($conn);
+
+    $table = preg_replace('/[^a-z0-9_]/', '', $config['table']);
+    $cols = array_keys($data);
+    $id = (int) $id;
+
+    // Normalize nulls to empty string for mysqli bind (DATE empty → NULL via SQL)
+    foreach ($cols as $c) {
+        if ($data[$c] === null) {
+            $data[$c] = '';
+        }
+    }
+
+    if ($id > 0) {
+        $sets = [];
+        $types = '';
+        $values = [];
+        foreach ($cols as $c) {
+            // Empty date/time → NULL
+            if ($data[$c] === '' && isMasterDateTimeField($config, $c)) {
+                $sets[] = "`{$c}` = NULL";
+            } else {
+                $sets[] = "`{$c}` = ?";
+                $types .= masterBindType($data[$c]);
+                $values[] = $data[$c];
+            }
+        }
+        $sql = "UPDATE `{$table}` SET " . implode(', ', $sets) . " WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $types .= 'i';
+        $values[] = $id;
+        if ($types !== 'i') {
+            $stmt->bind_param($types, ...$values);
+        } else {
+            $stmt->bind_param('i', $id);
+        }
+        $ok = $stmt->execute();
+        $error = $stmt->error;
+        $stmt->close();
+        $conn->close();
+        return ['ok' => $ok, 'id' => $id, 'error' => $error];
+    }
+
+    $colParts = [];
+    $phParts = [];
+    $types = '';
+    $values = [];
+    foreach ($cols as $c) {
+        $colParts[] = "`{$c}`";
+        if ($data[$c] === '' && isMasterDateTimeField($config, $c)) {
+            $phParts[] = 'NULL';
+        } else {
+            $phParts[] = '?';
+            $types .= masterBindType($data[$c]);
+            $values[] = $data[$c];
+        }
+    }
+    $sql = "INSERT INTO `{$table}` (" . implode(', ', $colParts) . ", status) VALUES (" . implode(', ', $phParts) . ", 1)";
+    $stmt = $conn->prepare($sql);
+    if ($types !== '') {
+        $stmt->bind_param($types, ...$values);
+    }
+    $ok = $stmt->execute();
+    $error = $stmt->error;
+    $newId = (int) $conn->insert_id;
+    $stmt->close();
+    $conn->close();
+    return ['ok' => $ok, 'id' => $newId, 'error' => $error];
+}
+
+function isMasterDateTimeField(array $config, $fieldName)
+{
+    foreach ($config['fields'] as $f) {
+        if ($f['name'] === $fieldName && in_array($f['type'], ['date', 'time'], true)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * mysqli bind type for a value
+ */
+function masterBindType($value)
+{
+    if (is_int($value)) {
+        return 'i';
+    }
+    if (is_float($value)) {
+        return 'd';
+    }
+    return 's';
+}
+
+/**
+ * Format cell for list display
+ */
+function formatMasterCell($key, $value)
+{
+    if ($value === null || $value === '') {
+        return '-';
+    }
+    if ($key === 'icon_color') {
+        $c = htmlspecialchars((string) $value);
+        return '<span class="color-swatch" style="background:' . $c . '"></span> ' . $c;
+    }
+    if ($key === 'icon_class') {
+        $ic = htmlspecialchars((string) $value);
+        return '<i class="fa-solid ' . $ic . '"></i> <code>' . $ic . '</code>';
+    }
+    if ($key === 'holiday_date' && $value) {
+        return formatDateDisplay($value) ?: '-';
+    }
+    if ($key === 'holiday_to_date') {
+        return $value ? (formatDateDisplay($value) ?: '-') : '-';
+    }
+    if (($key === 'start_time' || $key === 'end_time') && $value) {
+        return date('h:i A', strtotime($value));
+    }
+    if ($key === 'default_value' || $key === 'min_amount' || $key === 'max_amount' || $key === 'monthly_salary') {
+        return number_format((float) $value, 2);
+    }
+    return htmlspecialchars((string) $value);
+}
+
+/**
+ * Server-side DataTables JSON for a master
+ */
+function masterAjaxListJson(array $config)
+{
+    $table = preg_replace('/[^a-z0-9_]/', '', $config['table']);
+    $nameField = $config['name_field'];
+    $listCols = $config['list_columns'];
+
+    $draw   = (int) ($_POST['draw'] ?? 1);
+    $start  = max(0, (int) ($_POST['start'] ?? 0));
+    $length = (int) ($_POST['length'] ?? 10);
+    if ($length <= 0 || $length > 100) {
+        $length = 10;
+    }
+    $search = trim($_POST['search']['value'] ?? '');
+    $orderCol = (int) ($_POST['order'][0]['column'] ?? 1);
+    $orderDir = (strtolower($_POST['order'][0]['dir'] ?? 'asc') === 'desc') ? 'DESC' : 'ASC';
+
+    // Column 0 = Sr, then list columns, then Action
+    $orderMap = ['id'];
+    foreach ($listCols as $c) {
+        $orderMap[] = $c['key'];
+    }
+    $orderBy = $orderMap[$orderCol] ?? 'id';
+    $orderBy = preg_replace('/[^a-z0-9_]/', '', $orderBy);
+
+    $conn = getDBConnection();
+    ensureMasterTables($conn);
+
+    $totalRes = $conn->query("SELECT COUNT(*) AS c FROM `{$table}` WHERE status = 1");
+    $recordsTotal = (int) ($totalRes->fetch_assoc()['c'] ?? 0);
+
+    $where = 'status = 1';
+    $types = '';
+    $params = [];
+
+    if ($search !== '') {
+        $parts = [];
+        foreach ($listCols as $c) {
+            $col = preg_replace('/[^a-z0-9_]/', '', $c['key']);
+            $parts[] = "`{$col}` LIKE ?";
+            $types .= 's';
+            $params[] = '%' . $search . '%';
+        }
+        if ($parts) {
+            $where .= ' AND (' . implode(' OR ', $parts) . ')';
+        }
+    }
+
+    $stmtC = $conn->prepare("SELECT COUNT(*) AS c FROM `{$table}` WHERE {$where}");
+    if ($types !== '') {
+        $stmtC->bind_param($types, ...$params);
+    }
+    $stmtC->execute();
+    $recordsFiltered = (int) ($stmtC->get_result()->fetch_assoc()['c'] ?? 0);
+    $stmtC->close();
+
+    $sql = "SELECT * FROM `{$table}` WHERE {$where} ORDER BY `{$orderBy}` {$orderDir} LIMIT ?, ?";
+    $typesData = $types . 'ii';
+    $paramsData = $params;
+    $paramsData[] = $start;
+    $paramsData[] = $length;
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param($typesData, ...$paramsData);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $folder = $config['folder'];
+    $data = [];
+    $sr = $start + 1;
+    while ($row = $result->fetch_assoc()) {
+        $id = (int) $row['id'];
+        $editUrl = app_url("masters/{$folder}/edit.php?id={$id}");
+        $delUrl  = app_url("masters/{$folder}/delete.php?id={$id}");
+        $label   = $row[$nameField] ?? ('#' . $id);
+
+        $item = [$sr++];
+        foreach ($listCols as $c) {
+            $item[] = formatMasterCell($c['key'], $row[$c['key']] ?? null);
+        }
+        $item[] = '<div class="action-links" onclick="event.stopPropagation();">'
+            . '<a href="' . htmlspecialchars($editUrl) . '" class="action-btn edit" title="Edit"><i class="fa-solid fa-pen"></i></a>'
+            . '<a href="' . htmlspecialchars($delUrl) . '" class="action-btn delete btn-delete" data-name="' . htmlspecialchars((string) $label) . '" title="Delete"><i class="fa-solid fa-trash"></i></a>'
+            . '</div>';
+
+        $data[] = $item;
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    return [
+        'draw'            => $draw,
+        'recordsTotal'    => $recordsTotal,
+        'recordsFiltered' => $recordsFiltered,
+        'data'            => $data,
+    ];
+}
+
+/**
+ * Normalize holiday from/to into valid Y-m-d pair (to defaults to from).
+ * @return array{0:string,1:string}|null
+ */
+function holidayNormalizeRange($fromDate, $toDate = null)
+{
+    $from = '';
+    if ($fromDate && $fromDate !== '0000-00-00' && preg_match('/^\d{4}-\d{2}-\d{2}/', (string) $fromDate)) {
+        $from = substr((string) $fromDate, 0, 10);
+    }
+    if ($from === '') {
+        return null;
+    }
+    $to = '';
+    if ($toDate && $toDate !== '0000-00-00' && preg_match('/^\d{4}-\d{2}-\d{2}/', (string) $toDate)) {
+        $to = substr((string) $toDate, 0, 10);
+    }
+    if ($to === '') {
+        $to = $from;
+    }
+    if ($to < $from) {
+        $to = $from;
+    }
+    // Safety: max 366 days in one holiday row
+    $maxTs = strtotime($from . ' +365 days');
+    if ($maxTs && strtotime($to) > $maxTs) {
+        $to = date('Y-m-d', $maxTs);
+    }
+    return [$from, $to];
+}
+
+/**
+ * List each Y-m-d from from..to inclusive.
+ * @return string[]
+ */
+function holidayExpandDates($fromDate, $toDate = null)
+{
+    $range = holidayNormalizeRange($fromDate, $toDate);
+    if ($range === null) {
+        return [];
+    }
+    [$from, $to] = $range;
+    $out = [];
+    $ts = strtotime($from);
+    $end = strtotime($to);
+    if ($ts === false || $end === false) {
+        return [];
+    }
+    while ($ts <= $end) {
+        $out[] = date('Y-m-d', $ts);
+        $ts = strtotime('+1 day', $ts);
+    }
+    return $out;
+}
+
+/**
+ * Display label for holiday date / range (DD-MM-YYYY or From – To).
+ */
+function holidayFormatDateRangeDisplay($fromDate, $toDate = null)
+{
+    $range = holidayNormalizeRange($fromDate, $toDate);
+    if ($range === null) {
+        return '-';
+    }
+    [$from, $to] = $range;
+    $a = function_exists('formatDateDisplay') ? formatDateDisplay($from) : $from;
+    if ($from === $to) {
+        return $a !== '' ? $a : '-';
+    }
+    $b = function_exists('formatDateDisplay') ? formatDateDisplay($to) : $to;
+    return trim($a . ' – ' . $b);
+}
+
+/**
+ * Holiday master dates overlapping a window, expanded to day map.
+ * Keys = Y-m-d, value = ['paid' => bool, 'title' => string, 'department_id' => int]
+ *
+ * @return array<string,array{paid:bool,title:string,department_id:int}>
+ */
+function holidayDateMapForWindow($conn, $windowFrom, $windowTo, $departmentId = 0)
+{
+    $set = [];
+    $windowFrom = substr((string) $windowFrom, 0, 10);
+    $windowTo = substr((string) $windowTo, 0, 10);
+    if ($windowFrom === '' || $windowTo === '' || $windowFrom > $windowTo) {
+        return $set;
+    }
+    if (!$conn) {
+        return $set;
+    }
+
+    static $cols = null;
+    if ($cols === null) {
+        $hc = @$conn->query('SHOW COLUMNS FROM holidays');
+        if (!$hc) {
+            return $set;
+        }
+        $cols = [];
+        while ($c = $hc->fetch_assoc()) {
+            $cols[] = $c['Field'];
+        }
+    }
+    if (!in_array('holiday_date', $cols, true)) {
+        return $set;
+    }
+    $hasTo = in_array('holiday_to_date', $cols, true);
+    $hasPaid = in_array('is_paid', $cols, true);
+    $hasDept = in_array('department_id', $cols, true);
+    $hasType = in_array('holiday_type', $cols, true);
+    $hasStatus = in_array('status', $cols, true);
+
+    $toExpr = $hasTo
+        ? "COALESCE(NULLIF(holiday_to_date, '0000-00-00'), holiday_date)"
+        : 'holiday_date';
+    $paidSel = $hasPaid ? ', is_paid' : ", 'Yes' AS is_paid";
+    $deptSel = $hasDept ? ', department_id' : ', 0 AS department_id';
+    $titleSel = in_array('title', $cols, true) ? ', title' : ", '' AS title";
+
+    $where = "holiday_date IS NOT NULL AND holiday_date != '' AND holiday_date != '0000-00-00'";
+    $where .= " AND holiday_date <= '" . $conn->real_escape_string($windowTo) . "'";
+    $where .= " AND {$toExpr} >= '" . $conn->real_escape_string($windowFrom) . "'";
+    if ($hasStatus) {
+        $where .= ' AND status = 1';
+    }
+    if ($hasType) {
+        $where .= " AND (holiday_type = 'Holiday' OR holiday_type IS NULL OR holiday_type = '')";
+    }
+
+    $sql = "SELECT holiday_date" . ($hasTo ? ', holiday_to_date' : '') . "{$paidSel}{$deptSel}{$titleSel}
+            FROM holidays
+            WHERE {$where}";
+    $q = @$conn->query($sql);
+    if (!$q) {
+        return $set;
+    }
+
+    $departmentId = (int) $departmentId;
+    while ($r = $q->fetch_assoc()) {
+        $dept = (int) ($r['department_id'] ?? 0);
+        if ($departmentId > 0 && $dept > 0 && $dept !== $departmentId) {
+            continue;
+        }
+        $from = substr((string) ($r['holiday_date'] ?? ''), 0, 10);
+        $to = $hasTo ? substr((string) ($r['holiday_to_date'] ?? ''), 0, 10) : $from;
+        $paid = (($r['is_paid'] ?? 'Yes') !== 'No');
+        $title = (string) ($r['title'] ?? '');
+        foreach (holidayExpandDates($from, $to) as $d) {
+            if ($d < $windowFrom || $d > $windowTo) {
+                continue;
+            }
+            // Paid wins if overlapping rows disagree
+            if (!isset($set[$d]) || ($paid && empty($set[$d]['paid']))) {
+                $set[$d] = [
+                    'paid' => $paid,
+                    'title' => $title,
+                    'department_id' => $dept,
+                ];
+            }
+        }
+    }
+    return $set;
+}
+
