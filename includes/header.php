@@ -206,6 +206,8 @@ if (!empty($staffLeaveApplyToasts)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?><?php echo htmlspecialchars($companyName); ?> HRMS</title>
+    <link rel="icon" type="image/png" href="<?php echo app_url('assets/images/fav.png'); ?>">
+    <link rel="shortcut icon" type="image/png" href="<?php echo app_url('assets/images/fav.png'); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -237,7 +239,7 @@ if (!empty($staffLeaveApplyToasts)) {
                     <img src="<?php echo htmlspecialchars($logoSrc); ?>"
                          alt="<?php echo htmlspecialchars($companyName); ?>"
                          class="brand-logo"
-                         onerror="this.src='<?php echo app_url('assets/images/logo-placeholder.svg'); ?>'">
+                         onerror="this.src='<?php echo app_url('assets/images/endoc-logo.png'); ?>'">
                     <span class="brand-text"><?php echo htmlspecialchars($companyName); ?></span>
                 </a>
             <?php endif; ?>

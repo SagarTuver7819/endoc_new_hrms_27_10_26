@@ -179,9 +179,9 @@ require_once __DIR__ . '/../includes/header.php';
                 </span>
             </div>
             <?php if ($myApprovalAction !== ''): ?>
-            <div class="form-page-card" style="margin-bottom:12px;border-left:4px solid #0c54a0;background:#f6f9fd;">
+            <div class="form-page-card" style="margin-bottom:12px;border-left:4px solid #008094;background:#f6f9fd;">
                 <p style="margin:0 0 8px;">
-                    <strong><i class="fa-solid fa-user-check" style="color:#0c54a0;"></i>
+                    <strong><i class="fa-solid fa-user-check" style="color:#008094;"></i>
                     <?php echo $myApprovalAction === 'check' ? 'Your check is pending (HR Head)' : 'Your final approval is pending (Accounts)'; ?></strong>
                     · Review the register below, then approve or send back with a remark.
                 </p>
@@ -249,7 +249,7 @@ require_once __DIR__ . '/../includes/header.php';
             ];
             ?>
             <details class="form-page-card" style="margin-bottom:12px;padding:10px 14px;" <?php echo !$isLocked ? 'open' : ''; ?>>
-                <summary style="cursor:pointer;font-weight:700;"><i class="fa-solid fa-clock-rotate-left" style="color:#0c54a0;"></i> Approval History (<?php echo count($approvalLog); ?>)</summary>
+                <summary style="cursor:pointer;font-weight:700;"><i class="fa-solid fa-clock-rotate-left" style="color:#008094;"></i> Approval History (<?php echo count($approvalLog); ?>)</summary>
                 <ul style="margin:10px 0 0;padding-left:18px;line-height:1.7;">
                     <?php foreach ($approvalLog as $lg): ?>
                         <li>

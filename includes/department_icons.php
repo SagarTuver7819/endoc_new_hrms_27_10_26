@@ -6,8 +6,8 @@
 function departmentIconCatalog()
 {
     return [
-        'ADMINISTRATION' => ['fa-landmark', '#1E56A0'],
-        'HUMAN RESOURCE MANAGEMENT' => ['fa-users', '#0C54A0'],
+        'ADMINISTRATION' => ['fa-landmark', '#008094'],
+        'HUMAN RESOURCE MANAGEMENT' => ['fa-users', '#008094'],
         'ACCOUNTS AND FINANCE' => ['fa-file-invoice-dollar', '#2ECC71'],
         'SALES & MARKETING - DOMESTIC' => ['fa-handshake', '#1ABC9C'],
         'EXPORT & INTERNATIONAL MARKETING' => ['fa-earth-asia', '#0984E3'],
@@ -19,27 +19,22 @@ function departmentIconCatalog()
         'COMPLIANCE & CERTIFICATION' => ['fa-certificate', '#0D9488'],
         'EHS (ENVIRONMENT, HEALTH & SAFETY)' => ['fa-leaf', '#00B894'],
         'PRODUCTION PLANNING' => ['fa-calendar-check', '#6C5CE7'],
-        'RAW MATERIAL YARD' => ['fa-dumpster', '#7F8C8D'],
-        'SORTING & CUTTING' => ['fa-scissors', '#34495E'],
-        'CRACKING & GRINDING' => ['fa-gear', '#95A5A6'],
-        'DEVULCANIZATION' => ['fa-temperature-high', '#E74C3C'],
-        'MIXING' => ['fa-blender', '#9B59B6'],
-        'REFINING' => ['fa-layer-group', '#8E44AD'],
-        'STRAINER' => ['fa-filter', '#F39C12'],
-        'BUTYL RECLAIM' => ['fa-circle-dot', '#1E56A0'],
-        'EPDM RECLAIM' => ['fa-ring', '#2C3E50'],
-        'WHOLE TIRE & NATURAL TUBE RECLAIM' => ['fa-life-ring', '#636E72'],
-        'RCB / PYROLYSIS PLANT' => ['fa-industry', '#2D3436'],
+        'PRODUCTION' => ['fa-industry', '#2D3436'],
+        'FORMULATION' => ['fa-flask-vial', '#9B59B6'],
+        'PROCESS / MANUFACTURING' => ['fa-gears', '#34495E'],
+        'FILLING & PACKAGING' => ['fa-box', '#E67E22'],
+        'WAREHOUSE' => ['fa-warehouse', '#7F8C8D'],
         'PACKING' => ['fa-box', '#E67E22'],
         'DISPATCH & LOGISTICS' => ['fa-truck', '#00B894'],
         'MECHANICAL MAINTENANCE' => ['fa-wrench', '#FD79A8'],
         'ELECTRICAL' => ['fa-bolt', '#F1C40F'],
+        'UTILITY' => ['fa-fire-burner', '#C0392B'],
         'BOILER & UTILITY' => ['fa-fire-burner', '#C0392B'],
         'SECURITY' => ['fa-shield-halved', '#5B6CFF'],
         'HOUSEKEEPING' => ['fa-broom', '#3498DB'],
         'CANTEEN' => ['fa-utensils', '#FDCB6E'],
-        'MANAGEMENT' => ['fa-briefcase', '#1E56A0'],
-        'HUMAN RESOURCE' => ['fa-users', '#0C54A0'],
+        'MANAGEMENT' => ['fa-briefcase', '#008094'],
+        'HUMAN RESOURCE' => ['fa-users', '#008094'],
         'INFORMATION TECHNOLOGY' => ['fa-laptop-code', '#3498DB'],
         'QUALITY' => ['fa-certificate', '#16A085'],
     ];
@@ -65,15 +60,14 @@ function resolveDepartmentIcon($departmentName)
     // Keyword fallbacks so sync-created depts never stay plain building
     $keywords = [
         'CLEAN' => ['fa-broom', '#3498DB'],
-        'RECLAIM' => ['fa-recycle', '#1E56A0'],
-        'RUBBER' => ['fa-recycle', '#1E56A0'],
-        'TYRE' => ['fa-life-ring', '#636E72'],
-        'TIRE' => ['fa-life-ring', '#636E72'],
+        'BIO' => ['fa-flask', '#27AE60'],
+        'FORMULA' => ['fa-flask-vial', '#9B59B6'],
+        'PROCESS' => ['fa-gears', '#34495E'],
         'EXPORT' => ['fa-earth-asia', '#0984E3'],
         'SALES' => ['fa-handshake', '#1ABC9C'],
         'ACCOUNT' => ['fa-file-invoice-dollar', '#2ECC71'],
-        'HR' => ['fa-users', '#0C54A0'],
-        'HUMAN' => ['fa-users', '#0C54A0'],
+        'HR' => ['fa-users', '#008094'],
+        'HUMAN' => ['fa-users', '#008094'],
         'IT ' => ['fa-laptop-code', '#3498DB'],
         'TECH' => ['fa-laptop-code', '#3498DB'],
         'MAINT' => ['fa-wrench', '#FD79A8'],
@@ -86,8 +80,8 @@ function resolveDepartmentIcon($departmentName)
         'CUT' => ['fa-scissors', '#34495E'],
         'BOILER' => ['fa-fire-burner', '#C0392B'],
         'ELECTRIC' => ['fa-bolt', '#F1C40F'],
-        'ADMIN' => ['fa-landmark', '#1E56A0'],
-        'MANAGE' => ['fa-briefcase', '#1E56A0'],
+        'ADMIN' => ['fa-landmark', '#008094'],
+        'MANAGE' => ['fa-briefcase', '#008094'],
         'SECURITY' => ['fa-shield-halved', '#2D3436'],
         'QUALITY' => ['fa-clipboard-check', '#16A085'],
         'PACK' => ['fa-box', '#E17055'],
@@ -102,7 +96,7 @@ function resolveDepartmentIcon($departmentName)
     }
 
     // Stable unique color from name hash (never all same blue building)
-    $palette = ['#5B6CFF', '#0C54A0', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C', '#3498DB', '#E67E22', '#16A085', '#8E44AD', '#E74C3C', '#2980B9'];
+    $palette = ['#5B6CFF', '#008094', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C', '#3498DB', '#E67E22', '#16A085', '#8E44AD', '#E74C3C', '#2980B9'];
     $color = $palette[abs(crc32($name)) % count($palette)];
     return ['fa-building-user', $color];
 }

@@ -68,7 +68,7 @@ $stageCards = [
         <div class="form-page-header">
             <div>
                 <h1>Payroll Approvals</h1>
-                <p>Maker → Checker → Accounts · <?php echo (int) $countPending; ?> pending<?php if ($countMine > 0): ?> · <strong style="color:#0c54a0;"><?php echo (int) $countMine; ?> waiting for you</strong><?php endif; ?></p>
+                <p>Maker → Checker → Accounts · <?php echo (int) $countPending; ?> pending<?php if ($countMine > 0): ?> · <strong style="color:#008094;"><?php echo (int) $countMine; ?> waiting for you</strong><?php endif; ?></p>
             </div>
         </div>
 

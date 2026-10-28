@@ -48,7 +48,7 @@ if (isset($_GET['msg'])) {
     </div>
     <div class="list-header">
         <div class="master-list-title">
-            <div class="master-list-icon" style="background:#0c54a0;"><i class="fa-solid fa-table"></i></div>
+            <div class="master-list-icon" style="background:#008094;"><i class="fa-solid fa-table"></i></div>
             <div>
                 <h1>Operations Rate List</h1>
                 <p>Filter by operation / month / year, then Excel (All Employees) for day-wise sheets of everyone together.</p>

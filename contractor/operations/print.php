@@ -170,14 +170,14 @@ if ($filterMonth > 0 && $filterYear > 0) {
             font-weight: 700;
             margin: 6px 0 14px;
             padding: 8px 12px;
-            background: #e7eef8;
+            background: #e6f4f5;
             border: 1px solid #a9c6e8;
             border-radius: 6px;
-            color: #08407c;
+            color: #006070;
         }
         table { width: 100%; border-collapse: collapse; font-size: 9.5px; table-layout: fixed; }
         th, td { border: 1px solid #94a3b8; padding: 4px 4px; text-align: left; word-wrap: break-word; vertical-align: top; }
-        th { background: #e7eef8; font-weight: 700; color: #1a2332; }
+        th { background: #e6f4f5; font-weight: 700; color: #1a2332; }
         td.num, th.num { text-align: right; }
         td.center, th.center { text-align: center; }
         td.merge-mid {
@@ -185,7 +185,7 @@ if ($filterMonth > 0 && $filterYear > 0) {
             vertical-align: middle;
             font-weight: 600;
         }
-        td.grand, th.grand { background: #e7eef8; font-weight: 700; }
+        td.grand, th.grand { background: #e6f4f5; font-weight: 700; }
         tr.emp-total td { background: #fff7ed; font-weight: 700; }
         tfoot td { font-weight: bold; background: #fffaf5; }
         .toolbar { margin-bottom: 12px; text-align: left; }
@@ -193,7 +193,7 @@ if ($filterMonth > 0 && $filterYear > 0) {
             display: inline-block; padding: 8px 14px; margin-right: 8px;
             border: 0; border-radius: 6px; text-decoration: none; cursor: pointer; font-size: 13px;
         }
-        .btn-print { background: #0c54a0; color: #fff; }
+        .btn-print { background: #008094; color: #fff; }
         .btn-back { background: #e2e8f0; color: #111; }
         @media print {
             .toolbar { display: none !important; }

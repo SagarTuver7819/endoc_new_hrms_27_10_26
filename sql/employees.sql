@@ -3,7 +3,7 @@
 -- Run this once in phpMyAdmin or MySQL
 -- =====================================================
 
-USE fishfa_rubber_hrms;
+USE endoc_hrms;
 
 CREATE TABLE IF NOT EXISTS employees (
     id INT AUTO_INCREMENT PRIMARY KEY,

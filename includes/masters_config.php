@@ -9,8 +9,8 @@ function getMastersConfig()
     return [
         'designations' => [
             'key'         => 'designations',
-            'title'       => 'Designation Master',
-            'singular'    => 'Designation',
+            'title'       => 'Post / Designation Master',
+            'singular'    => 'Post / Designation',
             'table'       => 'designations',
             'folder'      => 'designations',
             'icon'        => 'fa-id-badge',
@@ -18,12 +18,12 @@ function getMastersConfig()
             'name_field'  => 'name',
             'list_columns'=> [
                 ['key' => 'code', 'label' => 'Code'],
-                ['key' => 'name', 'label' => 'Designation'],
+                ['key' => 'name', 'label' => 'Post / Employee Type'],
                 ['key' => 'sort_order', 'label' => 'Sort'],
             ],
             'fields' => [
                 ['name' => 'code', 'label' => 'Code', 'type' => 'text', 'required' => false, 'span' => 1],
-                ['name' => 'name', 'label' => 'Designation Name', 'type' => 'text', 'required' => true, 'span' => 2],
+                ['name' => 'name', 'label' => 'Post / Employee Type', 'type' => 'text', 'required' => true, 'span' => 2],
                 ['name' => 'description', 'label' => 'Description', 'type' => 'textarea', 'required' => false, 'span' => 3],
                 ['name' => 'sort_order', 'label' => 'Sort Order', 'type' => 'number', 'required' => false, 'span' => 1, 'default' => 0],
             ],
@@ -36,7 +36,7 @@ function getMastersConfig()
             'table'       => 'departments',
             'folder'      => 'departments',
             'icon'        => 'fa-building',
-            'color'       => '#0c54a0',
+            'color'       => '#008094',
             'name_field'  => 'department_name',
             'list_columns'=> [
                 ['key' => 'department_name', 'label' => 'Department'],
@@ -47,7 +47,7 @@ function getMastersConfig()
             'fields' => [
                 ['name' => 'department_name', 'label' => 'Department Name', 'type' => 'text', 'required' => true, 'span' => 2],
                 ['name' => 'icon_class', 'label' => 'Icon Class (Font Awesome)', 'type' => 'text', 'required' => false, 'span' => 1, 'default' => 'fa-building', 'help' => 'e.g. fa-users'],
-                ['name' => 'icon_color', 'label' => 'Icon Color', 'type' => 'color', 'required' => false, 'span' => 1, 'default' => '#0c54a0'],
+                ['name' => 'icon_color', 'label' => 'Icon Color', 'type' => 'color', 'required' => false, 'span' => 1, 'default' => '#008094'],
                 ['name' => 'sort_order', 'label' => 'Sort Order', 'type' => 'number', 'required' => false, 'span' => 1, 'default' => 0],
             ],
         ],
@@ -188,7 +188,7 @@ function getMastersConfig()
             'table'       => 'holidays',
             'folder'      => 'holidays',
             'icon'        => 'fa-calendar-days',
-            'color'       => '#0C54A0',
+            'color'       => '#008094',
             'name_field'  => 'title',
             'fill_department_options' => true,
             'list_columns'=> [
@@ -361,7 +361,7 @@ function getMastersConfig()
             'table'       => 'products',
             'folder'      => 'products',
             'icon'        => 'fa-box',
-            'color'       => '#08407C',
+            'color'       => '#006070',
             'name_field'  => 'product_name',
             'list_columns'=> [
                 ['key' => 'code', 'label' => 'Code'],

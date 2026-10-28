@@ -56,7 +56,7 @@ require_once __DIR__ . '/../includes/header.php';
 
     <div class="form-page-card">
         <div class="form-page-header">
-            <h1><i class="fa-solid fa-comments" style="color:#0c54a0;"></i> Employee Voice</h1>
+            <h1><i class="fa-solid fa-comments" style="color:#008094;"></i> Employee Voice</h1>
             <p>Admin view — grievances, suggestions &amp; safety reports with attachments.</p>
         </div>
 

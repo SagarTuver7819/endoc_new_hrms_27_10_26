@@ -82,7 +82,7 @@ function inductionGetSheetDefinition($type)
         'coverage' => 'Industries Introduction, Company History, Company Business & Products, Product Portfolio, Corporate Video',
     ];
     $coreValues = [
-        'topic' => 'FISHFA Core Purpose & Values',
+        'topic' => 'ENDOC Core Purpose & Values',
         'coverage' => 'Core Purpose, Core Values, Company Vision & Goal',
     ];
     $productKnowledge = [

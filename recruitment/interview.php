@@ -594,7 +594,7 @@ if (isset($_GET['msg'])) {
 .rec-iv-docs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .rec-iv-doc {
     display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 9px;
-    border: 1px solid #cfe0f3; background: #f3f7fc; color: #08407c; font-size: 12px; font-weight: 700; text-decoration: none;
+    border: 1px solid #c5e6ea; background: #f0f8f9; color: #006070; font-size: 12px; font-weight: 700; text-decoration: none;
 }
 .rec-iv-doc.is-empty { background: #f8fafc; border-color: #e2e8f0; color: #94a3b8; }
 .rec-iv-empty { margin: 0; color: #94a3b8; font-weight: 600; }
@@ -602,7 +602,7 @@ if (isset($_GET['msg'])) {
 .rec-desc-view-item {
     border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; background: #fff;
 }
-.rec-desc-view-item > strong { display: inline-block; color: #08407c; font-size: 12px; margin-bottom: 6px; }
+.rec-desc-view-item > strong { display: inline-block; color: #006070; font-size: 12px; margin-bottom: 6px; }
 .rec-desc-view-q { font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.4; }
 .rec-desc-view-q.en { font-weight: 700; color: #1e293b; font-size: 14px; margin-top: 2px; margin-bottom: 8px; }
 .rec-desc-view-a {
@@ -615,11 +615,11 @@ if (isset($_GET['msg'])) {
     gap: 12px; align-items: start;
     padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff;
 }
-.rec-matrix-row.is-filled { border-color: #cfe0f3; background: #f6f9fd; }
+.rec-matrix-row.is-filled { border-color: #c5e6ea; background: #f6f9fd; }
 .rec-matrix-q { display: flex; gap: 10px; align-items: flex-start; }
 .rec-matrix-no {
     width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
-    background: #e7eef8; color: #0c54a0; font-size: 12px; font-weight: 800;
+    background: #e6f4f5; color: #008094; font-size: 12px; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
 }
 .rec-matrix-q strong { display: block; font-size: 13px; color: #0f172a; line-height: 1.35; }

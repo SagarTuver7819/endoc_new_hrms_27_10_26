@@ -14,7 +14,7 @@ function ensureCompanySettingsSchema($conn)
     $conn->query(
         "CREATE TABLE IF NOT EXISTS company_settings (
             id INT PRIMARY KEY DEFAULT 1,
-            company_name VARCHAR(150) NOT NULL DEFAULT 'Fishfa Rubbers Limited',
+            company_name VARCHAR(150) NOT NULL DEFAULT 'Endoc Biotech Pvt Ltd',
             company_logo VARCHAR(255) DEFAULT NULL,
             login_logo VARCHAR(255) DEFAULT NULL,
             dashboard_logo VARCHAR(255) DEFAULT NULL,
@@ -46,7 +46,7 @@ function ensureCompanySettingsSchema($conn)
 
     $conn->query(
         "INSERT INTO company_settings (id, company_name)
-         VALUES (1, 'Fishfa Rubbers Limited')
+         VALUES (1, 'Endoc Biotech Pvt Ltd')
          ON DUPLICATE KEY UPDATE id = id"
     );
 
@@ -67,6 +67,21 @@ function ensureCompanySettingsSchema($conn)
            AND company_logo IS NOT NULL
            AND company_logo <> ''"
     );
+
+    // Replace legacy placeholder with Endoc brand logo
+    $brandLogo = 'assets/images/endoc-logo.png';
+    $conn->query(
+        "UPDATE company_settings
+         SET login_logo = '{$brandLogo}',
+             dashboard_logo = '{$brandLogo}',
+             company_logo = '{$brandLogo}'
+         WHERE id = 1
+           AND (
+             login_logo IS NULL OR login_logo = '' OR login_logo LIKE '%logo-placeholder%'
+             OR dashboard_logo IS NULL OR dashboard_logo = '' OR dashboard_logo LIKE '%logo-placeholder%'
+             OR company_logo IS NULL OR company_logo = '' OR company_logo LIKE '%logo-placeholder%'
+           )"
+    );
 }
 
 /**
@@ -80,9 +95,9 @@ function getCompanySettings()
         return $settings;
     }
 
-    $defaultLogo = 'assets/images/logo-placeholder.svg';
+    $defaultLogo = 'assets/images/endoc-logo.png';
     $settings = [
-        'company_name'    => 'Fishfa Rubbers Limited',
+        'company_name'    => 'Endoc Biotech Pvt Ltd',
         'login_logo'      => $defaultLogo,
         'dashboard_logo'  => $defaultLogo,
         'company_logo'    => $defaultLogo, // legacy
@@ -179,11 +194,15 @@ function getCompanyFooterDetails()
 }
 
 /**
- * Check if path is a custom uploaded logo (not default placeholder)
+ * Check if path is a custom uploaded logo (not Endoc brand default)
  */
 function isCustomLogo($path)
 {
+    $defaults = [
+        'assets/images/endoc-logo.png',
+        'assets/images/logo-placeholder.svg',
+    ];
     return !empty($path)
-        && $path !== 'assets/images/logo-placeholder.svg'
+        && !in_array($path, $defaults, true)
         && file_exists(__DIR__ . '/../' . $path);
 }

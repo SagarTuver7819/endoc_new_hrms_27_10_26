@@ -1,6 +1,6 @@
 <?php
 /**
- * Digital Visiting Card — Fishfa Rubbers brand · Front + Back · Print/PDF & Image
+ * Digital Visiting Card — Endoc Biotech brand · Front + Back · Print/PDF & Image
  */
 
 require_once __DIR__ . '/../config/app.php';
@@ -63,7 +63,7 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="form-page-card">
         <div class="form-page-header">
             <h1>Digital Visiting Card</h1>
-            <p>Fishfa Rubbers design · Front (logo + company) · Back (name, role, contacts + logo) · Print/PDF &amp; Image</p>
+            <p>Endoc Biotech design · Front (logo + company) · Back (name, role, contacts + logo) · Print/PDF &amp; Image</p>
         </div>
 
         <form method="GET" class="employee-form leave-rpt-filters" id="vcFilterForm">

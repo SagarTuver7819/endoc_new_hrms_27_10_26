@@ -20,14 +20,14 @@ if (!$canView) {
 
 $orderUrl = canteenOrderUrl();
 $cutoffLabel = canteenCutoffLabel();
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Fishfa Rubbers Limited';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 $logoPath = function_exists('getLoginLogo') ? getLoginLogo() : '';
 $logoSrc = $logoPath;
 if ($logoSrc && strpos($logoSrc, 'http') !== 0 && strpos($logoSrc, '/') !== 0) {
     $logoSrc = app_url($logoSrc);
 }
 if (!$logoSrc) {
-    $logoSrc = app_url('assets/images/logo-placeholder.svg');
+    $logoSrc = app_url('assets/images/endoc-logo.png');
 }
 $h = static function ($s) {
     return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -50,14 +50,14 @@ $h = static function ($s) {
             display: inline-flex; align-items: center; gap: 6px; background: #333; color: #fff; border: 0;
             padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; text-decoration: none; font-family: inherit; font-size: 13px;
         }
-        .bar button.primary { background: #0c54a0; }
+        .bar button.primary { background: #008094; }
         .bar .grp { display: flex; gap: 8px; }
         .sheet { min-height: calc(100vh - 56px); display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
         .card { width: min(170mm, 100%); border: 2.5px solid #111; padding: 28px 24px 22px; text-align: center; background: #fff; }
-        .top { display: flex; align-items: center; justify-content: center; gap: 14px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 3px solid #0c54a0; }
+        .top { display: flex; align-items: center; justify-content: center; gap: 14px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 3px solid #008094; }
         .logo { width: 64px; height: 64px; object-fit: contain; }
         .brand { text-align: left; }
-        .brand strong { display: block; font-size: 16px; font-weight: 800; color: #08407c; line-height: 1.2; }
+        .brand strong { display: block; font-size: 16px; font-weight: 800; color: #006070; line-height: 1.2; }
         .brand span { display: block; margin-top: 4px; font-size: 11px; font-weight: 800; color: #475569; letter-spacing: .06em; }
         h1 { font-size: 30px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; color: #0f172a; }
         .sub { font-size: 15px; font-weight: 700; color: #334155; margin-bottom: 4px; }
@@ -71,7 +71,7 @@ $h = static function ($s) {
         #qr img, #qr canvas { display: block; width: 300px !important; height: 300px !important; }
         .cut {
             display: inline-block; margin-bottom: 10px; padding: 8px 16px; border-radius: 10px;
-            background: #0c54a0; color: #fff; font-weight: 800; font-size: 15px;
+            background: #008094; color: #fff; font-weight: 800; font-size: 15px;
         }
         .url { font-size: 12px; font-weight: 700; color: #0f172a; word-break: break-all; max-width: 480px; margin: 0 auto 6px; }
         .note { font-size: 12px; font-weight: 600; color: #64748b; }
@@ -99,7 +99,7 @@ $h = static function ($s) {
 <div class="sheet">
     <div class="card">
         <div class="top">
-            <img class="logo" src="<?php echo $h($logoSrc); ?>" alt="" onerror="this.src='<?php echo $h(app_url('assets/images/logo-placeholder.svg')); ?>'">
+            <img class="logo" src="<?php echo $h($logoSrc); ?>" alt="" onerror="this.src='<?php echo $h(app_url('assets/images/endoc-logo.png')); ?>'">
             <div class="brand">
                 <strong><?php echo $h(strtoupper($companyName)); ?></strong>
                 <span>CANTEEN · MEAL BOOKING</span>

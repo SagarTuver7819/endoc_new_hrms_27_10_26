@@ -1,4 +1,4 @@
-# Fishfa Rubbers HRMS — PHP limits for large contractor ops grids + PDF uploads
+# Endoc Biotech HRMS — PHP limits for large contractor ops grids + PDF uploads
 Options -Indexes
 
 <FilesMatch "(^\.env|^\.user\.ini$|^\.gitignore$|\.(md|sql|gz|log)$)">
@@ -6,7 +6,7 @@ Options -Indexes
 </FilesMatch>
 
 RedirectMatch 404 /\.git(/|$)
-RedirectMatch 404 ^/(fishfa_rubber/)?sql/
+RedirectMatch 404 ^/(endoc_new_hrms_27_10_26/)?sql/
 
 <IfModule mod_php.c>
     php_value max_input_vars 20000

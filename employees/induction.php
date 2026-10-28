@@ -29,9 +29,9 @@ if (!canAccess('employees', 'view', $deptId) && !isAdmin() && !isHR()) {
 $type = inductionResolveType($emp, $_GET['type'] ?? '');
 $sheet = inductionGetSheetDefinition($type);
 $brand = getCompanyDocumentBranding();
-$company = trim((string) ($brand['company_name'] ?? 'Fishfa Rubbers Limited'));
+$company = trim((string) ($brand['company_name'] ?? 'Endoc Biotech Pvt Ltd'));
 if ($company === '') {
-    $company = 'Fishfa Rubbers Limited';
+    $company = 'Endoc Biotech Pvt Ltd';
 }
 
 $empName = trim((string) ($emp['employee_name'] ?? ''));
@@ -76,7 +76,7 @@ $isMismatch = ($type !== $trackType);
         .bar .links { display: flex; gap: 8px; flex-wrap: wrap; }
         .bar a, .bar button {
             display: inline-block;
-            background: #0c54a0;
+            background: #008094;
             color: #fff;
             border: 0;
             padding: 8px 12px;
@@ -108,7 +108,7 @@ $isMismatch = ($type !== $trackType);
         .cdoc-header-text .cdoc-company {
             font-size: 18px;
             font-weight: 800;
-            color: #08407c;
+            color: #006070;
             font-family: Calibri, Candara, Segoe UI, Arial, sans-serif;
             margin: 0 0 3px;
         }
@@ -193,8 +193,8 @@ $isMismatch = ($type !== $trackType);
             margin-top: 4px;
             font-size: 9px;
             font-weight: 700;
-            color: #063263;
-            background: #e7eef8;
+            color: #004d5a;
+            background: #e6f4f5;
             padding: 1px 5px;
             border-radius: 3px;
         }

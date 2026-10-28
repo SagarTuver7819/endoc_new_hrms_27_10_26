@@ -84,10 +84,10 @@ foreach ($groups as $g) {
             font-weight: 700;
             margin: 6px 0 8px;
             padding: 6px 10px;
-            background: #e7eef8;
+            background: #e6f4f5;
             border: 1px solid #a9c6e8;
             border-radius: 6px;
-            color: #08407c;
+            color: #006070;
         }
         .sub-head {
             text-align: center;
@@ -162,12 +162,12 @@ foreach ($groups as $g) {
             display: inline-block; padding: 8px 14px; margin-right: 8px;
             border: 0; border-radius: 6px; text-decoration: none; cursor: pointer; font-size: 13px;
         }
-        .btn-print { background: #0c54a0; color: #fff; }
+        .btn-print { background: #008094; color: #fff; }
         .btn-back { background: #e2e8f0; color: #111; }
         @media print {
             .toolbar { display: none !important; }
             body { margin: 0 !important; }
-            .period-head { background: #e7eef8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .period-head { background: #e6f4f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .sheet-banner, th, .sr-earn, .sr-gross, .sr-ded, .sr-net, tfoot td {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;

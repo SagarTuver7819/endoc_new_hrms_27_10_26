@@ -151,16 +151,16 @@ if ($exportMode === 'excel') {
 
     // Letterhead
     echo '<tr>';
-    echo '<td rowspan="3" style="width:90px;height:80px;vertical-align:middle;text-align:center;border-bottom:3px solid #0c54a0;">';
+    echo '<td rowspan="3" style="width:90px;height:80px;vertical-align:middle;text-align:center;border-bottom:3px solid #008094;">';
     if ($logoAbs !== '') {
         echo '<img src="' . htmlspecialchars($logoAbs) . '" width="70" height="70">';
     }
     echo '</td>';
-    echo '<td colspan="' . ($cols - 1) . '" style="font-size:20px;font-weight:bold;color:#0c54a0;text-transform:uppercase;">'
+    echo '<td colspan="' . ($cols - 1) . '" style="font-size:20px;font-weight:bold;color:#008094;text-transform:uppercase;">'
         . htmlspecialchars((string) $brand['company_name']) . '</td></tr>';
     echo '<tr><td colspan="' . ($cols - 1) . '" style="font-size:11px;font-weight:bold;color:#1e293b;white-space:pre-wrap;">'
         . nl2br(htmlspecialchars((string) $brand['header_details'])) . '</td></tr>';
-    echo '<tr><td colspan="' . ($cols - 1) . '" style="border-bottom:3px solid #0c54a0;">&nbsp;</td></tr>';
+    echo '<tr><td colspan="' . ($cols - 1) . '" style="border-bottom:3px solid #008094;">&nbsp;</td></tr>';
 
     echo '<tr><td colspan="' . $cols . '">&nbsp;</td></tr>';
     echo '<tr><td colspan="' . $cols . '" style="font-size:16px;font-weight:bold;text-align:center;text-decoration:underline;">CANTEEN USE REPORT</td></tr>';
@@ -177,7 +177,7 @@ if ($exportMode === 'excel') {
         . '</tr>';
     echo '<tr><td colspan="' . $cols . '">&nbsp;</td></tr>';
 
-    $th = 'style="' . $cellBorder . 'background:#0c54a0;color:#ffffff;font-weight:bold;text-align:center;"';
+    $th = 'style="' . $cellBorder . 'background:#008094;color:#ffffff;font-weight:bold;text-align:center;"';
 
     // Department summary
     if ($showDeptSummary) {
@@ -224,7 +224,7 @@ if ($exportMode === 'excel') {
     $footer = trim((string) $brand['footer_details']);
     if ($footer !== '') {
         echo '<tr><td colspan="' . $cols . '">&nbsp;</td></tr>';
-        echo '<tr><td colspan="' . $cols . '" style="border-top:2px solid #0c54a0;font-size:10px;color:#475569;text-align:center;white-space:pre-wrap;">'
+        echo '<tr><td colspan="' . $cols . '" style="border-top:2px solid #008094;font-size:10px;color:#475569;text-align:center;white-space:pre-wrap;">'
             . nl2br(htmlspecialchars($footer)) . '</td></tr>';
     }
     echo '</table></body></html>';
@@ -268,7 +268,7 @@ if ($exportMode === 'print') {
             color: #fff; text-decoration: none; border: 0; cursor: pointer;
             font-size: 13px; font-weight: 700; font-family: inherit;
         }
-        .cp-btn.primary { background: #0c54a0; }
+        .cp-btn.primary { background: #008094; }
         .cp-page {
             width: 210mm; min-height: 297mm; margin: 16px auto;
             background: #fff; position: relative; overflow: hidden;
@@ -439,15 +439,15 @@ require_once __DIR__ . '/../includes/header.php';
 .cr-hero {
     display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
     padding: 18px 20px; margin-bottom: 18px; border-radius: 14px;
-    background: linear-gradient(120deg, #f3f7fc 0%, #ffffff 60%);
+    background: linear-gradient(120deg, #f0f8f9 0%, #ffffff 60%);
     border: 1px solid #dbe7f5;
 }
 .cr-hero-left { display: flex; align-items: center; gap: 14px; }
 .cr-hero-ico {
     width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
     display: grid; place-items: center; font-size: 22px; color: #fff;
-    background: linear-gradient(135deg, #0c54a0, #063263);
-    box-shadow: 0 8px 20px rgba(12, 84, 160, .25);
+    background: linear-gradient(135deg, #008094, #004d5a);
+    box-shadow: 0 8px 20px rgba(0, 128, 148, .25);
 }
 .cr-hero h1 { margin: 0; font-size: 22px; font-weight: 800; color: #0f172a; }
 .cr-hero p { margin: 3px 0 0; font-size: 13px; color: #64748b; }
@@ -496,13 +496,13 @@ require_once __DIR__ . '/../includes/header.php';
 .cr-table thead th:last-child { border-top-right-radius: 10px; }
 .cr-table tbody td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eef2f7; color: #1e293b; }
 .cr-table tbody tr:nth-child(even) td { background: #fafbfd; }
-.cr-table tbody tr:hover td { background: #f3f7fc; }
+.cr-table tbody tr:hover td { background: #f0f8f9; }
 .cr-table .ctr { text-align: center; }
 .cr-table tfoot td {
     padding: 11px 12px; font-weight: 800; font-size: 13px; background: #f1f5f9; border-top: 2px solid #cbd5e1;
 }
 .cr-table a.cr-emp { color: #0f172a; font-weight: 700; text-decoration: none; }
-.cr-table a.cr-emp:hover { color: #0c54a0; text-decoration: underline; }
+.cr-table a.cr-emp:hover { color: #008094; text-decoration: underline; }
 .cr-code { font-weight: 800; color: #475569; }
 
 .cr-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 800; }
@@ -512,7 +512,7 @@ require_once __DIR__ . '/../includes/header.php';
 .cr-num-no { color: #b91c1c; font-weight: 800; }
 
 .cr-bar { display: flex; align-items: center; gap: 8px; min-width: 150px; }
-.cr-bar-track { flex: 1; height: 8px; border-radius: 999px; background: #e3edf8; overflow: hidden; }
+.cr-bar-track { flex: 1; height: 8px; border-radius: 999px; background: #d9eef0; overflow: hidden; }
 .cr-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #22c55e, #15803d); }
 .cr-bar-pct { font-size: 12px; font-weight: 800; color: #334155; min-width: 36px; text-align: right; }
 
@@ -610,7 +610,7 @@ require_once __DIR__ . '/../includes/header.php';
 
         <?php if ($showDeptSummary): ?>
         <div class="cr-section-title">
-            <div><i class="fa-solid fa-chart-column" style="color:#0c54a0;"></i> Department-wise Summary</div>
+            <div><i class="fa-solid fa-chart-column" style="color:#008094;"></i> Department-wise Summary</div>
             <span class="count"><?php echo count($deptSummary); ?> departments</span>
         </div>
         <div class="table-wrap" style="margin-bottom:24px;">
@@ -664,7 +664,7 @@ require_once __DIR__ . '/../includes/header.php';
         <?php endif; ?>
 
         <div class="cr-section-title">
-            <div><i class="fa-solid fa-list-ul" style="color:#0c54a0;"></i> Employee List</div>
+            <div><i class="fa-solid fa-list-ul" style="color:#008094;"></i> Employee List</div>
             <span class="count"><?php echo count($rows); ?> employees</span>
         </div>
         <div class="table-wrap">

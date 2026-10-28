@@ -357,7 +357,7 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'saved') {
 .rec-app-docs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .rec-app-doc {
     display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 9px;
-    border: 1px solid #cfe0f3; background: #f3f7fc; color: #08407c; font-size: 12px; font-weight: 700; text-decoration: none;
+    border: 1px solid #c5e6ea; background: #f0f8f9; color: #006070; font-size: 12px; font-weight: 700; text-decoration: none;
 }
 .rec-app-doc.is-empty { background: #f8fafc; border-color: #e2e8f0; color: #94a3b8; }
 .rec-app-empty { margin: 0; color: #94a3b8; font-weight: 600; }
@@ -365,7 +365,7 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'saved') {
 .rec-desc-view-item {
     border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; background: #fff;
 }
-.rec-desc-view-item > strong { display: inline-block; color: #08407c; font-size: 12px; margin-bottom: 6px; }
+.rec-desc-view-item > strong { display: inline-block; color: #006070; font-size: 12px; margin-bottom: 6px; }
 .rec-desc-view-q { font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.4; }
 .rec-desc-view-q.en { font-weight: 700; color: #1e293b; font-size: 14px; margin-top: 2px; margin-bottom: 8px; }
 .rec-desc-view-a {

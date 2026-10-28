@@ -104,16 +104,50 @@ function ensureAttendanceTables($conn = null)
 function attendanceNormalizeHeader($h)
 {
     $h = strtolower(trim((string) $h));
-    $h = str_replace([' ', '-'], '_', $h);
+    $h = str_replace([' ', '-', '/', '\\'], '_', $h);
+    $h = preg_replace('/[^a-z0-9_]+/', '', $h);
+    $h = preg_replace('/_+/', '_', (string) $h);
+    $h = trim((string) $h, '_');
     $map = [
         'employee_code' => 'employee_code',
         'emp_code' => 'employee_code',
+        'empcode' => 'employee_code',
         'code' => 'employee_code',
         'biometric_user_id' => 'biometric_user_id',
         'biometric_id' => 'biometric_user_id',
         'bio_id' => 'biometric_user_id',
         'employee_name' => 'employee_name',
+        'emp_name' => 'employee_name',
         'name' => 'employee_name',
+        'post' => 'designation',
+        'designation' => 'designation',
+        'position' => 'designation',
+        'employee_type' => 'designation',
+        'emp_type' => 'designation',
+        'type_of_employee' => 'designation',
+        'date_of_joining' => 'date_of_joining',
+        'joining_date' => 'date_of_joining',
+        'doj' => 'date_of_joining',
+        'date_of_birth' => 'date_of_birth',
+        'date_of_brith' => 'date_of_birth', // common Excel typo
+        'birth_date' => 'date_of_birth',
+        'dob' => 'date_of_birth',
+        'mobile_number' => 'mobile_number',
+        'mobile_num' => 'mobile_number',
+        'mobail_num' => 'mobile_number', // common Excel typo
+        'mobail_number' => 'mobile_number',
+        'mobile' => 'mobile_number',
+        'phone' => 'mobile_number',
+        'contact' => 'mobile_number',
+        'address' => 'permanent_address',
+        'permanent_address' => 'permanent_address',
+        'present_address' => 'present_address',
+        'email' => 'office_email',
+        'e_mail' => 'office_email',
+        'mail' => 'office_email',
+        'office_email' => 'office_email',
+        'department' => 'department',
+        'department_name' => 'department',
         'attendance_date' => 'attendance_date',
         'date' => 'attendance_date',
         'punch_in_time' => 'punch_time',
@@ -262,9 +296,14 @@ function attendanceReadHtmlTable($html)
 
 function attendanceReadXlsx($filePath)
 {
+    if (!class_exists('ZipArchive')) {
+        throw new RuntimeException(
+            'PHP Zip extension is disabled. Enable extension=zip in php.ini, restart Apache, or upload CSV instead of .xlsx.'
+        );
+    }
     $zip = new ZipArchive();
     if ($zip->open($filePath) !== true) {
-        throw new RuntimeException('Unable to open XLSX file');
+        throw new RuntimeException('Unable to open XLSX file. Try Save As → CSV UTF-8 and upload again.');
     }
     $shared = [];
     $ss = $zip->getFromName('xl/sharedStrings.xml');
@@ -1850,7 +1889,7 @@ function attendanceRenderExcelMonthTableHtml(array $grid, array $opts = [])
         $html .= '<th style="' . $thStyle . '">' . $d . '<br><span style="font-weight:600;font-size:9px;opacity:0.95;">' . htmlspecialchars($dayNames[$d]) . '</span></th>';
     }
     $sumStyle = $formal
-        ? 'text-align:center;font-weight:700;background:#0c54a0;color:#fff;vertical-align:middle;padding:4px 2px;'
+        ? 'text-align:center;font-weight:700;background:#008094;color:#fff;vertical-align:middle;padding:4px 2px;'
         : 'text-align:center;font-weight:700;';
     $html .= '<th style="' . $sumStyle . '">Present Days</th>';
     $html .= '<th style="' . $sumStyle . '">Week Off</th>';

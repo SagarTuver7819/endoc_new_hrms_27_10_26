@@ -37,27 +37,22 @@ if (!function_exists('ensureCompanyContentTables')) {
     function companyContentDefaultHistory()
     {
         return [
-            'company' => 'Fishfa Rubbers Limited',
+            'company' => 'Endoc Biotech Pvt Ltd',
             'heading' => 'Company History',
             'paragraphs' => [
-                'Fishfa Rubbers Limited is a global leader in the Butyl and Depolymer Reclaim Rubber industry, headquartered at Lodhika GIDC, Metoda, Rajkot, Gujarat. The company creates wealth from waste by recycling hazardous rubber waste and transforming it into valuable reclaim rubber, while eliminating environmental pollution and earning carbon credits.',
-                'Fishfa\'s journey began in 1971 as a modest tyre retreading firm. As the number of clients grew, the group forayed into the highly competitive reclaim rubber business, was incorporated as Fishfa Rubbers in May 2000, and became a Limited company in 2022.',
-                'The company has adopted ultra-modern manufacturing technologies and follows best industry practices to suit global standards. Its environment-friendly infrastructure keeps even the rubber-waste processing premises clean, green and pollution free.',
-                'Today Fishfa exports around 90% of its production to more than 22 countries across Europe, the USA, the Far East and South Africa. The company is REACH certified under European Community Regulation and is a winner of the Export Excellence Award.',
+                'Endoc Biotech Pvt Ltd is a biotechnology company focused on quality, compliance and people-first operations. The HRMS supports plant and office teams with attendance, payroll, recruitment and employee lifecycle processes.',
+                'The organisation continues to grow by investing in skilled people, safe workplaces and reliable systems that keep day-to-day HR and operations organised.',
+                'This Company History section can be updated anytime from Masters → Company History with your official narrative, milestones and product lines.',
             ],
             'products_2021' => [
-                'Tyre & Tube Manufacturing',
-                'Automotive Rubber Parts',
-                'Conveyor Belts & Hoses',
-                'Footwear',
-                'Mats, Sheets & Moulded Goods',
+                'Biotechnology products & solutions',
+                'Quality & compliance support',
+                'Plant & operations services',
             ],
             'products_today' => [
-                'Butyl Reclaim Rubber',
-                'EPDM Reclaim Rubber',
-                'Natural Tube Reclaim',
-                'Whole Tire Reclaim Rubber',
-                'Recovered Carbon Black (rCB)',
+                'Biotechnology products & solutions',
+                'Quality & compliance support',
+                'Plant & operations services',
             ],
         ];
     }
@@ -66,16 +61,15 @@ if (!function_exists('ensureCompanyContentTables')) {
     {
         return [
             'heading' => 'Vision, Mission & Core Values',
-            'leadership' => 'The Fishfa Group is led by Founder & Chairman Mr. Kanjibhai Kalavadia, with CEO Mr. S.K. Joshi driving international marketing and global growth.',
-            'vision' => 'Having achieved the No.1 position in the global Butyl Reclaim Rubber industry, our vision is to be a leader in the global rubber industry by launching the best quality products for domestic and international customers, and to play a major role in freeing the world from hazardous rubber waste.',
+            'leadership' => 'Endoc Biotech Pvt Ltd is driven by a leadership team committed to quality, compliance and sustainable growth.',
+            'vision' => 'To be a trusted biotechnology organisation known for quality products, ethical practices and an engaged workforce.',
             'mission' => [
-                'Recycle hazardous rubber waste into high-quality reclaim rubber and rCB.',
-                'Deliver consistent quality that meets global standards and customer specifications.',
-                'Protect the environment through clean, sustainable and responsible manufacturing.',
-                'Continuously invest in technology, infrastructure and people.',
+                'Deliver consistent quality that meets customer and regulatory expectations.',
+                'Build a safe, compliant and people-centric workplace.',
+                'Continuously improve processes through technology and training.',
+                'Grow responsibly with integrity and customer focus.',
             ],
             'core_values' => [
-                'Sustainability',
                 'Quality Without Compromise',
                 'Safety First',
                 'Integrity',
@@ -199,23 +193,13 @@ if (!function_exists('ensureCompanyContentTables')) {
     {
         $html = htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8');
         $phrases = [
-            'Fishfa Rubbers Limited',
-            'Fishfa Rubbers',
-            'Founder & Chairman Mr. Kanjibhai Kalavadia',
-            'Mr. Kanjibhai Kalavadia',
-            'Mr. S.K. Joshi',
-            'Butyl Reclaim Rubber',
-            'Depolymer',
-            'REACH certified',
-            'Export Excellence Award',
-            '22 countries',
-            '90% of its production',
-            'No.1 position',
-            'carbon credits',
-            '1971',
-            'May 2000',
-            '2022',
-            'Rajkot, Gujarat',
+            'Endoc Biotech Pvt Ltd',
+            'Endoc Biotech',
+            'Biotechnology',
+            'Quality Without Compromise',
+            'Safety First',
+            'Continuous Improvement',
+            'Customer Focus',
         ];
         usort($phrases, static function ($a, $b) {
             return strlen($b) - strlen($a);

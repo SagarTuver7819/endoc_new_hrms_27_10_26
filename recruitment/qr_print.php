@@ -18,7 +18,7 @@ if (!isAdmin() && !isHR() && !(function_exists('isStaffUser') && isStaffUser()) 
 
 ensureRecruitmentTables();
 $applyUrl = recruitmentApplyUrl();
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Fishfa Rubbers Limited';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 
 $logoPath = function_exists('getLoginLogo') ? getLoginLogo() : '';
 if (!$logoPath && function_exists('getCompanyLogo')) {
@@ -32,7 +32,7 @@ if ($logoSrc && strpos($logoSrc, 'http') !== 0 && strpos($logoSrc, '/') !== 0) {
     $logoSrc = app_url($logoSrc);
 }
 if (!$logoSrc) {
-    $logoSrc = app_url('assets/images/logo-placeholder.svg');
+    $logoSrc = app_url('assets/images/endoc-logo.png');
 }
 
 $h = static function ($s) {
@@ -78,7 +78,7 @@ $h = static function ($s) {
             font-family: inherit;
             font-size: 13px;
         }
-        .bar button.primary { background: #0c54a0; }
+        .bar button.primary { background: #008094; }
         .sheet {
             min-height: calc(100vh - 56px);
             display: flex;
@@ -101,7 +101,7 @@ $h = static function ($s) {
             gap: 14px;
             padding-bottom: 14px;
             margin-bottom: 18px;
-            border-bottom: 3px solid #0c54a0;
+            border-bottom: 3px solid #008094;
             background: #ffffff !important;
         }
         .logo {
@@ -115,7 +115,7 @@ $h = static function ($s) {
             display: block;
             font-size: 16px;
             font-weight: 800;
-            color: #08407c;
+            color: #006070;
             line-height: 1.2;
         }
         .brand span {
@@ -216,7 +216,7 @@ $h = static function ($s) {
     <div class="card">
         <div class="top">
             <img class="logo" src="<?php echo $h($logoSrc); ?>" alt=""
-                 onerror="this.src='<?php echo $h(app_url('assets/images/logo-placeholder.svg')); ?>'">
+                 onerror="this.src='<?php echo $h(app_url('assets/images/endoc-logo.png')); ?>'">
             <div class="brand">
                 <strong><?php echo $h(strtoupper($companyName)); ?></strong>
                 <span>CAREERS · SCAN TO APPLY</span>

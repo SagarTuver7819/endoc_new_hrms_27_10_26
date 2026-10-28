@@ -68,7 +68,7 @@ if ($hrBrandLogoSrc && strpos($hrBrandLogoSrc, 'http') !== 0 && strpos($hrBrandL
     $hrBrandLogoSrc = app_url($hrBrandLogoSrc);
 }
 if ($hrBrandLogoSrc === '') {
-    $hrBrandLogoSrc = app_url('assets/images/logo-placeholder.svg');
+    $hrBrandLogoSrc = app_url('assets/images/endoc-logo.png');
 }
 
 // ── KPI counts ─────────────────────────────────────────
@@ -374,8 +374,8 @@ require_once __DIR__ . '/../includes/header.php';
                 <div style="display:flex;align-items:center;gap:14px;min-width:220px;flex:1;">
                     <div class="emp-avatar emp-dash-avatar hr-dash-brand-logo" aria-hidden="true">
                         <img src="<?php echo htmlspecialchars($hrBrandLogoSrc); ?>"
-                             alt="<?php echo htmlspecialchars(function_exists('getCompanyName') ? getCompanyName() : 'Fishfa Rubbers Limited'); ?>"
-                             onerror="this.src='<?php echo app_url('assets/images/logo-placeholder.svg'); ?>'">
+                             alt="<?php echo htmlspecialchars(function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd'); ?>"
+                             onerror="this.src='<?php echo app_url('assets/images/endoc-logo.png'); ?>'">
                     </div>
                     <div>
                         <h1 class="emp-dash-greet">
@@ -754,7 +754,7 @@ require_once __DIR__ . '/../includes/header.php';
         <section class="form-page-card emp-dash-panel is-voice">
             <div class="emp-dash-panel-head">
                 <div>
-                    <h3><i class="fa-solid fa-comments" style="color:#0c54a0;"></i> Employee Voice</h3>
+                    <h3><i class="fa-solid fa-comments" style="color:#008094;"></i> Employee Voice</h3>
                     <p><?php echo (int) $kpi['voice_open']; ?> open tickets</p>
                 </div>
                 <a class="btn-ghost emp-dash-more" href="<?php echo app_url('employee_voice/index.php'); ?>">View all</a>

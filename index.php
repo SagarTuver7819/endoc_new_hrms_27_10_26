@@ -12,7 +12,10 @@ require_once __DIR__ . '/includes/department_head_helper.php';
 
 $companyName = getCompanyName();
 $companyLogo = getLoginLogo();
-$hasCustomLogo = isCustomLogo($companyLogo);
+if ($companyLogo === '' || !is_file(__DIR__ . '/' . ltrim((string) $companyLogo, '/'))) {
+    $companyLogo = 'assets/images/endoc-logo.png';
+}
+$hasLogoFile = is_file(__DIR__ . '/' . ltrim((string) $companyLogo, '/'));
 
 if (isLoggedIn()) {
     require_once __DIR__ . '/includes/department_head_helper.php';
@@ -146,6 +149,8 @@ $selectedRole = isset($_POST['login_as']) && in_array($_POST['login_as'], $uiRol
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - <?php echo htmlspecialchars($companyName); ?> HRMS</title>
+    <link rel="icon" type="image/png" href="<?php echo app_url('assets/images/fav.png'); ?>">
+    <link rel="shortcut icon" type="image/png" href="<?php echo app_url('assets/images/fav.png'); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -161,109 +166,71 @@ $selectedRole = isset($_POST['login_as']) && in_array($_POST['login_as'], $uiRol
     <div class="login-bg-grid"></div>
     <div class="login-bg-sweep"></div>
 
-    <svg width="0" height="0" style="position:absolute">
-        <defs>
-            <symbol id="rb-tyre" viewBox="0 0 200 200">
-                <circle cx="100" cy="100" r="92" fill="#2b2a29"/>
-                <?php for ($i = 0; $i < 36; $i++): ?>
-                <rect x="94" y="2" width="12" height="14" rx="2" fill="#2b2a29" transform="rotate(<?php echo $i * 10; ?> 100 100)"/>
-                <?php endfor; ?>
-                <circle cx="100" cy="100" r="80" fill="none" stroke="#4a4846" stroke-width="3" stroke-dasharray="6 5"/>
-                <circle cx="100" cy="100" r="62" fill="#3a3938"/>
-                <circle cx="100" cy="100" r="46" fill="#0c54a0"/>
-                <circle cx="100" cy="100" r="40" fill="none" stroke="#e7eef8" stroke-width="2"/>
-                <?php for ($i = 0; $i < 6; $i++): ?>
-                <rect x="96" y="62" width="8" height="34" rx="3" fill="#e7eef8" transform="rotate(<?php echo $i * 60; ?> 100 100)"/>
-                <?php endfor; ?>
-                <circle cx="100" cy="100" r="13" fill="#e7eef8"/>
-                <circle cx="100" cy="100" r="6" fill="#0c54a0"/>
-            </symbol>
-            <symbol id="rb-recycle" viewBox="0 0 100 100">
-                <g fill="none" stroke="#0c54a0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M50 14 A36 36 0 0 1 84 40"/>
-                    <path d="M82 60 A36 36 0 0 1 40 85"/>
-                    <path d="M22 72 A36 36 0 0 1 26 26"/>
-                </g>
-                <g fill="#0c54a0">
-                    <path d="M92 34 L84 48 L74 34 Z"/>
-                    <path d="M36 94 L28 80 L44 78 Z"/>
-                    <path d="M16 22 L32 18 L30 34 Z"/>
-                </g>
-            </symbol>
-            <symbol id="rb-drop" viewBox="0 0 40 56">
-                <path d="M20 2 C20 2 4 24 4 36 a16 16 0 0 0 32 0 C36 24 20 2 20 2Z" fill="#f6f9fd" stroke="#0c54a0" stroke-width="2.5"/>
-                <path d="M12 36 a8 8 0 0 0 6 8" fill="none" stroke="#8db8e6" stroke-width="2.5" stroke-linecap="round"/>
-            </symbol>
-        </defs>
+    <?php
+    // Endoc APIs — https://endocbiotech.com/product
+    $beltItems = [
+        ['MUPIROCIN', 'API', 'fa-capsules'],
+        ['MUPIROCIN Ca', 'API', 'fa-flask'],
+        ['TACROLIMUS', 'API', 'fa-prescription-bottle'],
+        ['FUSIDIC ACID', 'UP', 'fa-vial'],
+        ['CYCLOSPORINE', 'UP', 'fa-syringe'],
+        ['DAPTOMYCIN', 'UP', 'fa-pills'],
+        ['GMP', 'QC', 'fa-certificate'],
+        ['WHO-GMP', 'QC', 'fa-shield-halved'],
+    ];
+    ?>
+
+    <svg class="bio-wm bio-wm-1" viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="28" r="10" fill="#008094"/><circle cx="28" cy="78" r="10" fill="#8B3A36"/>
+        <circle cx="92" cy="78" r="10" fill="#006070"/><circle cx="60" cy="60" r="8" fill="#008094"/>
+        <line x1="60" y1="28" x2="60" y2="60" stroke="#008094" stroke-width="3"/>
+        <line x1="60" y1="60" x2="28" y2="78" stroke="#8B3A36" stroke-width="3"/>
+        <line x1="60" y1="60" x2="92" y2="78" stroke="#006070" stroke-width="3"/>
+    </svg>
+    <svg class="bio-wm bio-wm-2" viewBox="0 0 80 110" aria-hidden="true">
+        <path d="M30 8 h20 v28 l22 52 a14 14 0 0 1 -12 20 H20 a14 14 0 0 1 -12 -20 L30 36 Z" fill="none" stroke="#008094" stroke-width="3"/>
+        <rect x="28" y="4" width="24" height="8" rx="2" fill="#008094"/>
+    </svg>
+    <svg class="bio-wm bio-wm-3" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="24" y="6" width="16" height="52" rx="4" fill="#008094" opacity="0.35"/>
+        <rect x="6" y="24" width="52" height="16" rx="4" fill="#008094" opacity="0.35"/>
     </svg>
 
-    <svg class="rb-tyre rb-tyre-1"><use href="#rb-tyre"/></svg>
-    <svg class="rb-tyre rb-tyre-2"><use href="#rb-tyre"/></svg>
-    <svg class="rb-tyre rb-tyre-3"><use href="#rb-tyre"/></svg>
-    <svg class="rb-recycle"><use href="#rb-recycle"/></svg>
+    <div class="bio-belt-scene">
+        <div class="bio-desk">
+            <div class="bio-desk-glow"></div>
+            <div class="bio-monitor">
+                <span class="bio-monitor-screen"><i class="fa-solid fa-dna"></i></span>
+            </div>
+            <div class="bio-desk-body"></div>
+            <div class="bio-desk-label">R&amp;D</div>
+        </div>
 
-    <svg class="rb-drop rb-drop-1"><use href="#rb-drop"/></svg>
-    <svg class="rb-drop rb-drop-2"><use href="#rb-drop"/></svg>
-    <svg class="rb-drop rb-drop-3"><use href="#rb-drop"/></svg>
+        <div class="bio-belt">
+            <div class="bio-belt-track"></div>
+            <div class="bio-belt-items">
+                <?php foreach ($beltItems as $i => $item): ?>
+                    <div class="bio-belt-item bio-bi-<?php echo (int) $i; ?>">
+                        <span class="bio-bi-ico"><i class="fa-solid <?php echo htmlspecialchars($item[2]); ?>"></i></span>
+                        <strong><?php echo htmlspecialchars($item[0]); ?></strong>
+                        <em><?php echo htmlspecialchars($item[1]); ?></em>
+                    </div>
+                <?php endforeach; ?>
+                <?php foreach ($beltItems as $i => $item): ?>
+                    <div class="bio-belt-item bio-bi-dup bio-bi-<?php echo (int) $i; ?>">
+                        <span class="bio-bi-ico"><i class="fa-solid <?php echo htmlspecialchars($item[2]); ?>"></i></span>
+                        <strong><?php echo htmlspecialchars($item[0]); ?></strong>
+                        <em><?php echo htmlspecialchars($item[1]); ?></em>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
 
-    <span class="rb-crumb c1"></span>
-    <span class="rb-crumb c2"></span>
-    <span class="rb-crumb c3"></span>
-    <span class="rb-crumb c4"></span>
-    <span class="rb-crumb c5"></span>
-    <span class="rb-crumb c6"></span>
-    <span class="rb-crumb c7"></span>
-    <span class="rb-crumb c8"></span>
-
-    <div class="rb-road">
-        <svg class="rb-vehicle rb-truck" viewBox="0 0 270 120">
-            <rect x="4" y="74" width="176" height="10" rx="3" fill="#2b2a29"/>
-            <rect x="8" y="40" width="54" height="32" rx="5" fill="#2b2a29"/>
-            <rect x="8" y="66" width="54" height="6" fill="#0c54a0"/>
-            <text x="35" y="61" text-anchor="middle" class="rb-bale-txt">BUTYL</text>
-            <rect x="66" y="40" width="54" height="32" rx="5" fill="#0c54a0"/>
-            <rect x="66" y="66" width="54" height="6" fill="#2b2a29"/>
-            <text x="93" y="61" text-anchor="middle" class="rb-bale-txt">EPDM</text>
-            <rect x="124" y="40" width="54" height="32" rx="5" fill="#2b2a29"/>
-            <rect x="124" y="66" width="54" height="6" fill="#0c54a0"/>
-            <text x="151" y="61" text-anchor="middle" class="rb-bale-txt">WTR</text>
-            <rect x="37" y="8" width="54" height="30" rx="5" fill="#0c54a0"/>
-            <rect x="37" y="32" width="54" height="6" fill="#2b2a29"/>
-            <text x="64" y="27" text-anchor="middle" class="rb-bale-txt">NR</text>
-            <rect x="95" y="8" width="54" height="30" rx="5" fill="#2b2a29"/>
-            <rect x="95" y="32" width="54" height="6" fill="#0c54a0"/>
-            <text x="122" y="27" text-anchor="middle" class="rb-bale-txt">RCB</text>
-            <path d="M184 84 V38 a8 8 0 0 1 8 -8 h38 l26 26 v28 Z" fill="#0c54a0"/>
-            <path d="M200 38 h28 l18 18 h-46 Z" fill="#e7eef8"/>
-            <rect x="184" y="62" width="76" height="4" fill="#08407c"/>
-            <rect x="254" y="70" width="10" height="8" rx="2" fill="#fbbf24"/>
-            <rect x="0" y="84" width="266" height="6" rx="3" fill="#1d1c1b"/>
-            <g class="rb-wheel"><circle class="rb-wheel-glow" cx="42" cy="94" r="24"/><svg x="22" y="74" width="40" height="40" viewBox="0 0 200 200" overflow="visible"><g class="rb-wheel-spin"><use href="#rb-tyre" width="200" height="200"/></g></svg></g>
-            <g class="rb-wheel"><circle class="rb-wheel-glow" cx="118" cy="94" r="24"/><svg x="98" y="74" width="40" height="40" viewBox="0 0 200 200" overflow="visible"><g class="rb-wheel-spin"><use href="#rb-tyre" width="200" height="200"/></g></svg></g>
-            <g class="rb-wheel"><circle class="rb-wheel-glow" cx="222" cy="94" r="24"/><svg x="202" y="74" width="40" height="40" viewBox="0 0 200 200" overflow="visible"><g class="rb-wheel-spin"><use href="#rb-tyre" width="200" height="200"/></g></svg></g>
-        </svg>
-
-        <svg class="rb-vehicle rb-car" viewBox="0 0 200 90">
-            <path d="M8 63 V51 Q8 44 15 42.5 L42 38 L63 21 Q69 16 79 16 H119 Q129 16 136 21.5 L157 38 L184 42 Q194 44 194 52 V63 Q194 69 188 69 H171 A19 19 0 0 0 133 69 H69 A19 19 0 0 0 31 69 H14 Q8 69 8 63 Z" fill="#2b2a29"/>
-            <path d="M49 37 L65 23.5 Q69 20 76 20 H97 V37 Z" fill="#cfe0f3"/>
-            <path d="M102 20 H119 Q126 20 131 24 L148 37 H102 Z" fill="#cfe0f3"/>
-            <path d="M58 30 L66 23.5 Q68 22 72 21.5 L64 30 Z" fill="#ffffff" opacity="0.7"/>
-            <line x1="99.5" y1="38" x2="99.5" y2="66" stroke="#1d1c1b" stroke-width="1.5"/>
-            <line x1="46" y1="38" x2="46" y2="62" stroke="#1d1c1b" stroke-width="1.2"/>
-            <line x1="150" y1="38" x2="150" y2="62" stroke="#1d1c1b" stroke-width="1.2"/>
-            <rect x="84" y="43" width="10" height="2.5" rx="1.2" fill="#8db8e6"/>
-            <rect x="134" y="43" width="10" height="2.5" rx="1.2" fill="#8db8e6"/>
-            <path d="M148 34 h7 l2 5 h-9 Z" fill="#0c54a0"/>
-            <rect x="10" y="51" width="182" height="3.5" fill="#0c54a0"/>
-            <path d="M186 45 h6 q3 0 3 3 v3 h-9 Z" fill="#fbbf24"/>
-            <rect x="8" y="45" width="5" height="6" rx="1.5" fill="#ef4444"/>
-            <rect x="182" y="59" width="13" height="5" rx="2" fill="#1d1c1b"/>
-            <rect x="7" y="59" width="12" height="5" rx="2" fill="#1d1c1b"/>
-            <g class="rb-wheel"><circle class="rb-wheel-glow" cx="50" cy="69" r="19"/><svg x="34" y="53" width="32" height="32" viewBox="0 0 200 200" overflow="visible"><g class="rb-wheel-spin"><use href="#rb-tyre" width="200" height="200"/></g></svg></g>
-            <g class="rb-wheel"><circle class="rb-wheel-glow" cx="152" cy="69" r="19"/><svg x="136" y="53" width="32" height="32" viewBox="0 0 200 200" overflow="visible"><g class="rb-wheel-spin"><use href="#rb-tyre" width="200" height="200"/></g></svg></g>
-        </svg>
-
-        <div class="rb-road-surface"></div>
+        <div class="bio-gate">
+            <div class="bio-gate-arch">QC</div>
+            <div class="bio-gate-badge bio-gate-gmp">GMP</div>
+            <div class="bio-gate-badge bio-gate-ready">READY</div>
+        </div>
     </div>
 </div>
 
@@ -272,29 +239,22 @@ $selectedRole = isset($_POST['login_as']) && in_array($_POST['login_as'], $uiRol
         <span class="login-hub-badge">Command Hub</span>
 
         <header class="login-brand">
-            <p class="login-since">Since 1971</p>
-
-            <?php if ($hasCustomLogo): ?>
+            <?php if ($hasLogoFile): ?>
                 <div class="login-logo-wrap anim-logo">
                     <img src="<?php echo htmlspecialchars($companyLogo); ?>?v=<?php echo @filemtime(__DIR__ . '/' . $companyLogo) ?: time(); ?>"
                          alt="<?php echo htmlspecialchars($companyName); ?>"
-                         class="login-logo login-logo-custom">
+                         class="login-logo login-logo-custom login-logo-endoc">
                 </div>
             <?php else: ?>
-                <div class="login-logo-wrap anim-logo">
-                    <div class="login-logo-mark" aria-hidden="true">
-                        <img src="assets/images/logo-placeholder.svg" alt="">
-                    </div>
-                </div>
                 <div class="login-wordmark anim-wordmark">
-                    <span class="wm-brand">FISHFA</span>
-                    <span class="wm-fire">RUBBERS</span>
-                    <span class="wm-tag">New Geometry of Rubber</span>
+                    <span class="wm-brand">ENDOC</span>
+                    <span class="wm-fire">BIOTECH</span>
+                    <span class="wm-tag">Pvt Ltd</span>
                 </div>
             <?php endif; ?>
 
             <h1 class="login-portal-title">Human Resource Management</h1>
-            <p class="login-tagline">Creating Wealth from Waste · Precision ERP Node</p>
+            <p class="login-tagline">Endoc Biotech Pvt Ltd · HRMS</p>
         </header>
 
         <?php if ($error !== ''): ?>

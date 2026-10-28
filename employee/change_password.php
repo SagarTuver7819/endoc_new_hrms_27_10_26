@@ -96,7 +96,7 @@ if ($error !== '') {
     <div class="form-page-card" style="max-width:520px;">
         <div class="form-page-header">
             <div>
-                <h1><i class="fa-solid fa-key" style="color:#0c54a0;"></i> Change Password</h1>
+                <h1><i class="fa-solid fa-key" style="color:#008094;"></i> Change Password</h1>
                 <p>Set a new login password · No old password needed</p>
             </div>
         </div>

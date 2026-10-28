@@ -1732,8 +1732,11 @@ function employeeImportYesNo($value, $default = 'No')
 function employeeImportGet(array $row, $keys)
 {
     foreach ((array) $keys as $key) {
-        $key = strtolower(str_replace([' ', '-'], '_', (string) $key));
-        if (array_key_exists($key, $row) && trim((string) $row[$key]) !== '') {
+        $key = strtolower(trim((string) $key));
+        $key = str_replace([' ', '-', '/', '\\'], '_', $key);
+        $key = preg_replace('/[^a-z0-9_]+/', '', $key);
+        $key = trim((string) preg_replace('/_+/', '_', (string) $key), '_');
+        if ($key !== '' && array_key_exists($key, $row) && trim((string) $row[$key]) !== '') {
             return trim((string) $row[$key]);
         }
     }
@@ -1762,6 +1765,60 @@ function employeeImportFindDepartmentId($conn, $departmentName, $fallbackDeptId 
 }
 
 /**
+ * Ensure Designation / Post / Employee Type exists in masters.
+ * Returns canonical name stored in master (or trimmed input).
+ */
+function employeeEnsureDesignationMaster($conn, $postName)
+{
+    $name = trim((string) $postName);
+    if ($name === '' || $name === '-' || strcasecmp($name, 'null') === 0) {
+        return '';
+    }
+    $name = preg_replace('/\s+/', ' ', $name);
+    $name = mb_substr($name, 0, 150);
+
+    $conn->query(
+        "CREATE TABLE IF NOT EXISTS designations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            code VARCHAR(40) DEFAULT NULL,
+            name VARCHAR(150) NOT NULL,
+            description TEXT DEFAULT NULL,
+            sort_order INT NOT NULL DEFAULT 0,
+            status TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            KEY idx_designations_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
+    $find = $conn->prepare(
+        "SELECT id, name FROM designations
+         WHERE status = 1 AND UPPER(TRIM(name)) = UPPER(TRIM(?))
+         LIMIT 1"
+    );
+    $find->bind_param('s', $name);
+    $find->execute();
+    $existing = $find->get_result()->fetch_assoc();
+    $find->close();
+    if ($existing) {
+        return (string) $existing['name'];
+    }
+
+    $code = strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', $name));
+    $code = substr($code !== '' ? $code : 'POST', 0, 12);
+    $desc = 'Auto-added from employee import (Post / Employee Type)';
+    $sort = 0;
+    $ins = $conn->prepare(
+        'INSERT INTO designations (code, name, description, sort_order, status) VALUES (?, ?, ?, ?, 1)'
+    );
+    $ins->bind_param('sssi', $code, $name, $desc, $sort);
+    $ins->execute();
+    $ins->close();
+
+    return $name;
+}
+
+/**
  * Import employees from CSV / XLS / XLSX.
  * @return array{success:int,skipped:int,errors:int,error_log:string[]}
  */
@@ -1771,14 +1828,30 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
     require_once __DIR__ . '/date_helper.php';
 
     ensureEmployeesTable($conn);
+    if (function_exists('ensureCanonicalDepartments')) {
+        ensureCanonicalDepartments($conn);
+    } else {
+        require_once __DIR__ . '/department_helper.php';
+        ensureCanonicalDepartments($conn);
+    }
+
     $ext = strtolower(pathinfo((string) $originalName, PATHINFO_EXTENSION));
     $rows = attendanceReadSpreadsheet($filePath, $ext);
+    if (!$rows) {
+        throw new RuntimeException('No data rows found in file. Check header row and sheet1.');
+    }
 
     $success = 0;
     $skipped = 0;
     $errors = 0;
     $errorLog = [];
     $lineNo = 1; // header = 1, first data = 2
+
+    // If import opened without department lock, fall back to ADMINISTRATION when column blank
+    $fallbackDeptId = (int) $defaultDeptId;
+    if ($fallbackDeptId <= 0) {
+        $fallbackDeptId = (int) employeeImportFindDepartmentId($conn, 'ADMINISTRATION', 0);
+    }
 
     $insertSql = "INSERT INTO employees (
         employee_code, biometric_user_id, pay_type, department_id, sub_department_id, employee_name, father_husband_name,
@@ -1788,7 +1861,13 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
         bank_name, bank_account_number, ifsc_code, bank_branch_address,
         decided_salary, reporting_head, extra_note, week_off_day,
         week_off_benefits, holiday_benefits, overtime_benefits, main_contractor_id, created_by, status
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)";
+    ) VALUES (
+        ?,?,?,?,?,?,?,?,?,?,?,?,?,
+        NULLIF(?,''),?,NULLIF(?,''),NULLIF(?,''),
+        ?,?,?,?,?,?,?,?,
+        NULLIF(?,''),?,?,?,?,?,?,?,
+        ?,1
+    )";
 
     $stmt = $conn->prepare($insertSql);
     if (!$stmt) {
@@ -1799,14 +1878,32 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
         $lineNo++;
         $name = employeeImportGet($row, ['employee_name', 'name']);
         if ($name === '') {
-            // empty row
-            if (count(array_filter($row, static function ($v) {
-                return trim((string) $v) !== '';
-            })) === 0) {
+            // Check if this row has any real employee information
+            $checkPost = employeeImportGet($row, ['designation', 'post', 'position', 'employee_type', 'emp_type']);
+            $checkMobile = employeeImportGet($row, ['mobile_number', 'mobile', 'mobail_num', 'mobail_number', 'phone', 'contact']);
+            $checkDoj = employeeImportGet($row, ['date_of_joining', 'doj', 'joining_date']);
+            $checkDob = employeeImportGet($row, ['date_of_birth', 'date_of_brith', 'dob', 'birth_date']);
+            $checkAddr = employeeImportGet($row, ['permanent_address', 'address', 'present_address']);
+            $checkEmail = employeeImportGet($row, ['office_email', 'email', 'e_mail', 'mail']);
+            $checkCode = employeeImportGet($row, ['employee_code', 'emp_code', 'code']);
+
+            $hasRealData = ($checkPost !== '' || $checkMobile !== '' || $checkDoj !== '' || $checkDob !== '' || $checkAddr !== '' || $checkEmail !== '');
+
+            if (!$hasRealData) {
+                // Trailing empty/formula row at the bottom of the Excel sheet — safely ignore
                 continue;
             }
+
             $errors++;
-            $errorLog[] = "Row {$lineNo}: Employee Name is required.";
+            $details = trim(($checkCode ? "Code: {$checkCode}, " : '') . ($checkPost ? "Post: {$checkPost}, " : '') . ($checkMobile ? "Mobile: {$checkMobile}" : ''), ', ');
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'error',
+                'code' => $checkCode ?: '—',
+                'name' => '— (Missing Name)',
+                'problem' => 'Employee Name is blank on this row' . ($details !== '' ? " (Other details found: {$details})" : '') . '.',
+                'solution' => "Add the Employee Name in Excel Row {$lineNo} and re-upload.",
+            ];
             continue;
         }
 
@@ -1815,11 +1912,18 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
         if ($defaultDeptId > 0) {
             $departmentId = (int) $defaultDeptId;
         } else {
-            $departmentId = employeeImportFindDepartmentId($conn, $deptName, 0);
+            $departmentId = employeeImportFindDepartmentId($conn, $deptName, $fallbackDeptId);
         }
         if ($departmentId <= 0) {
             $errors++;
-            $errorLog[] = "Row {$lineNo}: Department missing/invalid for \"{$name}\".";
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'error',
+                'code' => employeeImportGet($row, ['employee_code', 'emp_code', 'code']) ?: '—',
+                'name' => $name,
+                'problem' => 'Department "' . ($deptName ?: 'Blank') . '" is invalid or not found in Department Masters.',
+                'solution' => 'Check the department name in Excel to match Masters, or add this department in Department Masters.',
+            ];
             continue;
         }
 
@@ -1829,12 +1933,28 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
             $empCode = generateEmployeeCode($conn, $payType);
         } elseif (!isEmployeeCodeUnique($conn, $empCode, 0)) {
             $skipped++;
-            $errorLog[] = "Row {$lineNo}: Code {$empCode} already exists — skipped.";
+            $existing = findEmployeeByCode($conn, $empCode, 0);
+            $existingName = $existing ? $existing['employee_name'] : 'an existing employee';
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'skipped',
+                'code' => $empCode,
+                'name' => $name,
+                'problem' => "Employee Code '{$empCode}' already exists in HRMS (assigned to '{$existingName}'). Duplicate codes are skipped.",
+                'solution' => "Change this code in Excel Row {$lineNo} to a unique code, or leave code blank to auto-generate.",
+            ];
             continue;
         }
         if (!preg_match('/^[A-Z0-9][A-Z0-9\-_\/]{0,29}$/i', $empCode)) {
             $errors++;
-            $errorLog[] = "Row {$lineNo}: Invalid employee code \"{$empCode}\".";
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'error',
+                'code' => $empCode,
+                'name' => $name,
+                'problem' => "Invalid employee code '{$empCode}'. Only letters, numbers, hyphens, and slashes are allowed (max 30 chars).",
+                'solution' => "Correct the employee code in Excel Row {$lineNo}.",
+            ];
             continue;
         }
 
@@ -1843,9 +1963,19 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
             $biometricId = $empCode;
         }
 
-        $dob = parseDateInput(employeeImportGet($row, ['date_of_birth', 'dob', 'birth_date']));
-        $doj = parseDateInput(employeeImportGet($row, ['date_of_joining', 'doj', 'joining_date']));
-        $doe = parseDateInput(employeeImportGet($row, ['date_of_exit', 'exit_date', 'doe']));
+        $dob = parseDateInput(employeeImportGet($row, ['date_of_birth', 'date_of_brith', 'dob', 'birth_date'])) ?: null;
+        $doj = parseDateInput(employeeImportGet($row, ['date_of_joining', 'doj', 'joining_date'])) ?: null;
+        $doe = parseDateInput(employeeImportGet($row, ['date_of_exit', 'exit_date', 'doe'])) ?: null;
+        // mysqli string bind: use empty string for NULL dates
+        if ($dob === null) {
+            $dob = '';
+        }
+        if ($doj === null) {
+            $doj = '';
+        }
+        if ($doe === null) {
+            $doe = '';
+        }
 
         $shiftTypeRaw = employeeImportGet($row, ['shift_type', 'shift']);
         $shiftType = (stripos($shiftTypeRaw, 'night') !== false) ? 'Night' : 'Day';
@@ -1857,17 +1987,41 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
 
         $salaryRaw = employeeImportGet($row, ['decided_salary', 'salary']);
         $salary = ($salaryRaw === '' || !is_numeric(str_replace(',', '', $salaryRaw)))
-            ? null
+            ? ''
             : (string) (float) str_replace(',', '', $salaryRaw);
 
         $father = employeeImportGet($row, ['father_husband_name', 'father_name', 'husband_name']);
-        $designation = employeeImportGet($row, ['designation']);
-        $mobile = employeeImportGet($row, ['mobile_number', 'mobile']);
+        if ($father === '' && $name !== '') {
+            $nameParts = preg_split('/\s+/', trim($name));
+            $candidateFather = '';
+            if (count($nameParts) === 3) {
+                // E.g. "Karan Mansukhbhai Senjaliya" -> Father: "Mansukhbhai"
+                $candidateFather = $nameParts[1];
+            } elseif (count($nameParts) > 3) {
+                $candidateFather = implode(' ', array_slice($nameParts, 1, -1));
+            }
+            // If middle name is just a single letter / initial (e.g. "B.", "B", "J.", "M."), keep father empty
+            if ($candidateFather !== '' && mb_strlen(preg_replace('/[^a-zA-Z]/', '', $candidateFather)) > 1) {
+                $father = $candidateFather;
+            }
+        }
+        $designation = employeeImportGet($row, ['designation', 'post', 'position', 'employee_type', 'emp_type']);
+        if ($designation !== '') {
+            $designation = employeeEnsureDesignationMaster($conn, $designation);
+        }
+        $mobile = employeeImportGet($row, ['mobile_number', 'mobile', 'mobail_num', 'mobail_number', 'phone', 'contact']);
         $emergency = employeeImportGet($row, ['emergency_mobile', 'emergency']);
         $aadhar = employeeImportGet($row, ['aadhar_number', 'aadhar']);
         $pan = employeeImportGet($row, ['pan_number', 'pan']);
-        $permAddr = employeeImportGet($row, ['permanent_address']);
-        $presAddr = employeeImportGet($row, ['present_address']);
+        $permAddr = employeeImportGet($row, ['permanent_address', 'address']);
+        $presAddr = employeeImportGet($row, ['present_address', 'address']);
+        if ($presAddr === '' && $permAddr !== '') {
+            $presAddr = $permAddr;
+        }
+        if ($permAddr === '' && $presAddr !== '') {
+            $permAddr = $presAddr;
+        }
+        $officeEmail = employeeImportGet($row, ['office_email', 'email', 'e_mail', 'mail']);
         $uan = employeeImportGet($row, ['uan_number', 'uan']);
         $bankName = employeeImportGet($row, ['bank_name']);
         $bankAccount = employeeImportGet($row, ['bank_account_number', 'account_number']);
@@ -1927,23 +2081,44 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
             }
             $emgName = employeeImportGet($row, ['emergency_contact_name', 'emergency_name']);
             $emgRel = employeeImportGet($row, ['emergency_contact_relation', 'emergency_relation']);
-            if ($newId > 0 && ($bloodGroup !== '' || $genderImp !== '' || $emgName !== '' || $emgRel !== '')) {
+            if ($newId > 0 && ($bloodGroup !== '' || $genderImp !== '' || $emgName !== '' || $emgRel !== '' || $officeEmail !== '')) {
                 $up = $conn->prepare(
                     'UPDATE employees SET
                         blood_group = IF(? = \'\', blood_group, ?),
                         gender = IF(? = \'\', gender, ?),
                         emergency_contact_name = IF(? = \'\', emergency_contact_name, ?),
-                        emergency_contact_relation = IF(? = \'\', emergency_contact_relation, ?)
+                        emergency_contact_relation = IF(? = \'\', emergency_contact_relation, ?),
+                        office_email = IF(? = \'\', office_email, ?)
                      WHERE id = ?'
                 );
-                $up->bind_param('ssssssssi', $bloodGroup, $bloodGroup, $genderImp, $genderImp, $emgName, $emgName, $emgRel, $emgRel, $newId);
+                $up->bind_param(
+                    'ssssssssssi',
+                    $bloodGroup,
+                    $bloodGroup,
+                    $genderImp,
+                    $genderImp,
+                    $emgName,
+                    $emgName,
+                    $emgRel,
+                    $emgRel,
+                    $officeEmail,
+                    $officeEmail,
+                    $newId
+                );
                 $up->execute();
                 $up->close();
             }
             $success++;
         } else {
             $errors++;
-            $errorLog[] = "Row {$lineNo}: DB error for \"{$name}\" — " . $stmt->error;
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'error',
+                'code' => $empCode,
+                'name' => $name,
+                'problem' => "Database save failed for \"{$name}\" (Code: {$empCode}): " . $stmt->error,
+                'solution' => "Check if data format in Row {$lineNo} matches field requirements.",
+            ];
         }
     }
 

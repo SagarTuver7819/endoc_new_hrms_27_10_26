@@ -36,7 +36,7 @@ $h = static function ($v) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Employee Logins · <?php echo $h($company); ?></title>
     <style>
-        :root { --brand: #0c54a0; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; }
+        :root { --brand: #008094; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; }
         * { box-sizing: border-box; }
         body {
             margin: 0;
@@ -89,8 +89,8 @@ $h = static function ($v) {
             vertical-align: top;
         }
         th {
-            background: #f3f7fc;
-            color: #063263;
+            background: #f0f8f9;
+            color: #004d5a;
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.03em;

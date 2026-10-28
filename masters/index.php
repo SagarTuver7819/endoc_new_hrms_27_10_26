@@ -30,7 +30,7 @@ $extraCompanyMasters = [
         'title' => 'Vision Mission Values',
         'folder' => 'company_vision',
         'icon' => 'fa-bullseye',
-        'color' => '#0c54a0',
+        'color' => '#008094',
         'meta' => 'View · Vision · Mission · Values',
     ],
 ];

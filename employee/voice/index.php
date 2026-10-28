@@ -59,7 +59,7 @@ require_once __DIR__ . '/../../includes/header.php';
 
     <div class="form-page-card">
         <div class="form-page-header">
-            <h1><i class="fa-solid fa-comments" style="color:#0c54a0;"></i> Employee Voice</h1>
+            <h1><i class="fa-solid fa-comments" style="color:#008094;"></i> Employee Voice</h1>
             <p>Submit a grievance, share a suggestion, or report a safety concern. You can only view your own tickets.</p>
         </div>
 
@@ -96,7 +96,7 @@ require_once __DIR__ . '/../../includes/header.php';
     <div class="form-page-card ev-my-grid-card" id="my-submissions">
         <div class="form-page-header flex-between" style="align-items:flex-start;gap:12px;flex-wrap:wrap;">
             <div>
-                <h1><i class="fa-solid fa-list-check" style="color:#0c54a0;"></i> My Submissions</h1>
+                <h1><i class="fa-solid fa-list-check" style="color:#008094;"></i> My Submissions</h1>
                 <p>Type-wise list with status and HR department response. Click View for full details.</p>
             </div>
             <div class="ev-type-filters">

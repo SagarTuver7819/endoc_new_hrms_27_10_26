@@ -30,7 +30,7 @@ echo '<tr><th colspan="' . count($headers) . '" style="background:#1e3a5f;color:
     . htmlspecialchars($companyName) . ' — Joining / Exit Report — ' . htmlspecialchars(date('F Y', mktime(0, 0, 0, $month, 1, $year)))
     . '</th></tr><tr>';
 foreach ($headers as $h) {
-    echo '<th style="background:#0c54a0;color:#fff;">' . htmlspecialchars($h) . '</th>';
+    echo '<th style="background:#008094;color:#fff;">' . htmlspecialchars($h) . '</th>';
 }
 echo '</tr>';
 

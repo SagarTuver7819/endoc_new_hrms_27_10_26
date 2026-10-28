@@ -30,7 +30,7 @@ echo '<tr><th colspan="11" style="background:#1e3a5f;color:#fff;">'
 $headers = ['Department', 'Employees', 'Fixed Gross', 'JW Govt', 'JW Actual', 'Total Gross', 'PF', 'PT', 'Loan+Adv', 'Deductions', 'Net Cost'];
 echo '<tr>';
 foreach ($headers as $h) {
-    echo '<th style="background:#0c54a0;color:#fff;">' . htmlspecialchars($h) . '</th>';
+    echo '<th style="background:#008094;color:#fff;">' . htmlspecialchars($h) . '</th>';
 }
 echo '</tr>';
 foreach ($data['rows'] as $r) {

@@ -60,7 +60,7 @@ if (isset($_GET['msg'])) {
         <div class="co-master-view-head">
             <div class="co-master-view-ico"><i class="fa-solid fa-book-open"></i></div>
             <div>
-                <p class="co-master-view-eyebrow"><?php echo htmlspecialchars((string) ($body['company'] ?? 'FISHFA RUBBERS')); ?></p>
+                <p class="co-master-view-eyebrow"><?php echo htmlspecialchars((string) ($body['company'] ?? 'ENDOC BIOTECH')); ?></p>
                 <h1><?php echo htmlspecialchars((string) ($body['heading'] ?? $title)); ?></h1>
                 <p>View · Employee login popup left section</p>
             </div>

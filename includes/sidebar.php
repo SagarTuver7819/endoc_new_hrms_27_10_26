@@ -129,7 +129,7 @@ $sidebarLogoSrc = $sidebarLogoPath;
 if ($sidebarLogoSrc && strpos($sidebarLogoSrc, 'http') !== 0 && strpos($sidebarLogoSrc, '/') !== 0) {
     $sidebarLogoSrc = app_url($sidebarLogoSrc);
 }
-$sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Fishfa Rubbers Limited';
+$sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 ?>
 
 <aside class="app-sidebar app-sidebar--styled" id="appSidebar" aria-label="Sidebar navigation">
@@ -138,7 +138,7 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Fi
             <img src="<?php echo htmlspecialchars($sidebarLogoSrc); ?>"
                  alt="<?php echo htmlspecialchars($sidebarCompanyName); ?>"
                  class="sidebar-logo-img"
-                 onerror="this.src='<?php echo app_url('assets/images/logo-placeholder.svg'); ?>'">
+                 onerror="this.src='<?php echo app_url('assets/images/endoc-logo.png'); ?>'">
             <span class="sidebar-company-name"><?php echo htmlspecialchars($sidebarCompanyName); ?></span>
         </a>
         <button type="button" class="sidebar-toggle" id="sidebarToggle" title="Hide / Show sidebar" aria-label="Toggle sidebar">
@@ -170,7 +170,7 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Fi
             <nav class="sidebar-nav sidebar-emp-nav">
                 <a href="<?php echo app_url('employee/dashboard.php'); ?>"
                    class="sidebar-link sidebar-emp-link <?php echo $sidebarActive === 'emp_home' ? 'active' : ''; ?>">
-                    <span class="sidebar-emp-ico" style="--emp-ico:#0c54a0;"><i class="fa-solid fa-house"></i></span>
+                    <span class="sidebar-emp-ico" style="--emp-ico:#008094;"><i class="fa-solid fa-house"></i></span>
                     <span class="sidebar-emp-txt">
                         <strong>Home</strong>
                         <small>My dashboard</small>
@@ -262,7 +262,7 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Fi
                 <?php if ($canEmployeeVoiceSubmit): ?>
                 <a href="<?php echo app_url('employee/voice/index.php'); ?>"
                    class="sidebar-link sidebar-emp-link <?php echo in_array((string) $sidebarActive, ['employee_voice', 'employee_voice_my'], true) ? 'active' : ''; ?>">
-                    <span class="sidebar-emp-ico" style="--emp-ico:#0c54a0;"><i class="fa-solid fa-comments"></i></span>
+                    <span class="sidebar-emp-ico" style="--emp-ico:#008094;"><i class="fa-solid fa-comments"></i></span>
                     <span class="sidebar-emp-txt">
                         <strong>Employee Voice</strong>
                         <small>Grievance · Suggestion · Safety</small>
@@ -300,7 +300,7 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Fi
             <nav class="sidebar-nav sidebar-emp-nav">
                 <a href="<?php echo app_url('dashboard.php'); ?>"
                    class="sidebar-link sidebar-emp-link <?php echo $sidebarActive === 'dashboard' ? 'active' : ''; ?>">
-                    <span class="sidebar-emp-ico" style="--emp-ico:#0c54a0;"><i class="fa-solid fa-house"></i></span>
+                    <span class="sidebar-emp-ico" style="--emp-ico:#008094;"><i class="fa-solid fa-house"></i></span>
                     <span class="sidebar-emp-txt">
                         <strong>Dashboard</strong>
                         <small>Company overview</small>
@@ -408,7 +408,7 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Fi
             <div class="sidebar-accordion <?php echo $openEmployeeVoice ? 'is-open' : ''; ?>" data-accordion="employee_voice" data-default-open="<?php echo $openEmployeeVoice ? '1' : '0'; ?>">
                 <button type="button" class="sidebar-acc-btn <?php echo $openEmployeeVoice ? 'is-active' : ''; ?>" aria-expanded="<?php echo $openEmployeeVoice ? 'true' : 'false'; ?>">
                     <span class="sidebar-acc-left">
-                        <span class="sidebar-emp-ico" style="--emp-ico:#0c54a0;"><i class="fa-solid fa-comments"></i></span>
+                        <span class="sidebar-emp-ico" style="--emp-ico:#008094;"><i class="fa-solid fa-comments"></i></span>
                         <span class="sidebar-emp-txt"><strong>Employee Voice</strong><small>Grievance · Suggestion · Safety</small></span>
                     </span>
                     <i class="fa-solid fa-chevron-down sidebar-acc-caret"></i>
@@ -418,7 +418,7 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'Fi
                     <a href="<?php echo app_url('employee_voice/index.php?type=GRIEVANCE'); ?>" class="sidebar-link sidebar-sublink <?php echo ($sidebarActive === 'ev_admin' && (($_GET['type'] ?? '') === 'GRIEVANCE')) ? 'active' : ''; ?>"><i class="fa-solid fa-box-tissue" style="color:#dc2626;"></i><span>Grievance</span></a>
                     <a href="<?php echo app_url('employee_voice/index.php?type=SUGGESTION'); ?>" class="sidebar-link sidebar-sublink"><i class="fa-solid fa-lightbulb" style="color:#16a34a;"></i><span>Suggestions</span></a>
                     <a href="<?php echo app_url('employee_voice/index.php?type=SAFETY'); ?>" class="sidebar-link sidebar-sublink"><i class="fa-solid fa-shield-halved" style="color:#2563eb;"></i><span>Safety</span></a>
-                    <a href="<?php echo app_url('employee_voice/report.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'ev_report' ? 'active' : ''; ?>"><i class="fa-solid fa-chart-column" style="color:#0c54a0;"></i><span>Report</span></a>
+                    <a href="<?php echo app_url('employee_voice/report.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'ev_report' ? 'active' : ''; ?>"><i class="fa-solid fa-chart-column" style="color:#008094;"></i><span>Report</span></a>
                 </div>
             </div>
             <?php endif; ?>

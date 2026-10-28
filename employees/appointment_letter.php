@@ -38,7 +38,7 @@ $emp = getEmployeeById($id) ?: $emp;
 $brand = getCompanyDocumentBranding();
 $company = trim((string) $brand['company_name']);
 if ($company === '') {
-    $company = 'Fishfa Rubbers Limited';
+    $company = 'Endoc Biotech Pvt Ltd';
 }
 $companyShort = $company;
 
@@ -123,7 +123,7 @@ $h = function ($s) {
             font-family: Calibri, Segoe UI, Arial, sans-serif;
         }
         .bar button {
-            background: #0c54a0;
+            background: #008094;
             color: #fff;
             border: 0;
             padding: 8px 12px;
@@ -166,7 +166,7 @@ $h = function ($s) {
         .cdoc-header-text .cdoc-company {
             font-size: 24px;
             font-weight: 800;
-            color: #08407c;
+            color: #006070;
             font-family: Calibri, Candara, Segoe UI, Arial, sans-serif;
             margin: 0 0 3px;
             line-height: 1.2;

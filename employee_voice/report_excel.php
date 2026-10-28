@@ -49,7 +49,7 @@ echo '<tr><th colspan="' . count($headers) . '" style="background:#f8fafc;text-a
     . ' · Closed: ' . (int) ($m['closed'] ?? 0)
     . '</th></tr><tr>';
 foreach ($headers as $h) {
-    echo '<th style="background:#0c54a0;color:#fff;">' . htmlspecialchars($h) . '</th>';
+    echo '<th style="background:#008094;color:#fff;">' . htmlspecialchars($h) . '</th>';
 }
 echo '</tr>';
 

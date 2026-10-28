@@ -31,7 +31,7 @@ if (isset($_GET['msg'])) {
     </div>
     <div class="list-header">
         <div class="master-list-title">
-            <div class="master-list-icon" style="background:#08407C;"><i class="fa-solid fa-box"></i></div>
+            <div class="master-list-icon" style="background:#006070;"><i class="fa-solid fa-box"></i></div>
             <div>
                 <h1>Product Master</h1>
                 <p>Operation · Rate · OT · Rejection — used by Operations Rate List</p>

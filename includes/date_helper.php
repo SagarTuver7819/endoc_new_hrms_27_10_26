@@ -122,6 +122,16 @@ function parseDateInput($value)
         return null;
     }
 
+    // Excel serial date (e.g. 44927) — common when reading .xlsx
+    if (preg_match('/^\d{4,6}(?:\.\d+)?$/', $value)) {
+        $serial = (float) $value;
+        if ($serial >= 20000 && $serial <= 80000) {
+            $base = new DateTimeImmutable('1899-12-30');
+            $dt = $base->modify('+' . (int) round($serial) . ' days');
+            return $dt ? $dt->format('Y-m-d') : null;
+        }
+    }
+
     // YYYY-MM-DD
     if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $m)) {
         $y = (int) $m[1];

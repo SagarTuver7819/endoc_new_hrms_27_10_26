@@ -196,7 +196,7 @@ if ($exportMode === 'excel') {
     header('Cache-Control: max-age=0');
 
     $bd = 'border:1px solid #94a3b8;';
-    $th = 'style="' . $bd . 'background:#0c54a0;color:#ffffff;font-weight:bold;text-align:center;"';
+    $th = 'style="' . $bd . 'background:#008094;color:#ffffff;font-weight:bold;text-align:center;"';
     $ctr = $bd . 'text-align:center;';
     $tick = static function ($v) use ($ctr) {
         return (int) $v === 1
@@ -208,19 +208,19 @@ if ($exportMode === 'excel') {
     echo '<table cellspacing="0" cellpadding="5" style="border-collapse:collapse;">';
 
     // Letterhead
-    echo '<tr><td rowspan="3" style="width:90px;height:80px;vertical-align:middle;text-align:center;border-bottom:3px solid #0c54a0;">';
+    echo '<tr><td rowspan="3" style="width:90px;height:80px;vertical-align:middle;text-align:center;border-bottom:3px solid #008094;">';
     if ($logoAbs !== '') {
         echo '<img src="' . htmlspecialchars($logoAbs) . '" width="70" height="70">';
     }
-    echo '</td><td colspan="' . ($cols - 1) . '" style="font-size:20px;font-weight:bold;color:#0c54a0;text-transform:uppercase;">'
+    echo '</td><td colspan="' . ($cols - 1) . '" style="font-size:20px;font-weight:bold;color:#008094;text-transform:uppercase;">'
         . htmlspecialchars((string) $brand['company_name']) . '</td></tr>';
     echo '<tr><td colspan="' . ($cols - 1) . '" style="font-size:11px;font-weight:bold;color:#1e293b;white-space:pre-wrap;">'
         . nl2br(htmlspecialchars((string) $brand['header_details'])) . '</td></tr>';
-    echo '<tr><td colspan="' . ($cols - 1) . '" style="border-bottom:3px solid #0c54a0;">&nbsp;</td></tr>';
+    echo '<tr><td colspan="' . ($cols - 1) . '" style="border-bottom:3px solid #008094;">&nbsp;</td></tr>';
 
     echo '<tr><td colspan="' . $cols . '">&nbsp;</td></tr>';
     echo '<tr><td colspan="' . $cols . '" style="font-size:16px;font-weight:bold;text-align:center;text-decoration:underline;">CANTEEN MEAL LIST</td></tr>';
-    echo '<tr><td colspan="' . $cols . '" style="font-size:14px;font-weight:bold;color:#0c54a0;text-align:center;">Meal Date: '
+    echo '<tr><td colspan="' . $cols . '" style="font-size:14px;font-weight:bold;color:#008094;text-align:center;">Meal Date: '
         . htmlspecialchars(canteenDateLabel($mealDate)) . '</td></tr>';
     echo '<tr><td colspan="' . $cols . '" style="font-size:11px;font-weight:bold;color:#334155;text-align:center;">'
         . htmlspecialchars($filterText) . ' &nbsp;|&nbsp; Booking closed: ' . htmlspecialchars($cutoffText)
@@ -275,7 +275,7 @@ if ($exportMode === 'excel') {
         }
         $sr = 0;
         foreach ($grouped as $dname => $list) {
-            echo '<tr><td colspan="' . $cols . '" style="' . $bd . 'background:#e7eef8;color:#063263;font-weight:bold;text-transform:uppercase;">'
+            echo '<tr><td colspan="' . $cols . '" style="' . $bd . 'background:#e6f4f5;color:#004d5a;font-weight:bold;text-transform:uppercase;">'
                 . htmlspecialchars($dname) . ' (' . count($list) . ')</td></tr>';
             foreach ($list as $r) {
                 $sr++;
@@ -341,7 +341,7 @@ if ($exportMode === 'excel') {
     $footer = trim((string) $brand['footer_details']);
     if ($footer !== '') {
         echo '<tr><td colspan="' . $cols . '">&nbsp;</td></tr>';
-        echo '<tr><td colspan="' . $cols . '" style="border-top:2px solid #0c54a0;font-size:10px;color:#475569;text-align:center;white-space:pre-wrap;">'
+        echo '<tr><td colspan="' . $cols . '" style="border-top:2px solid #008094;font-size:10px;color:#475569;text-align:center;white-space:pre-wrap;">'
             . nl2br(htmlspecialchars($footer)) . '</td></tr>';
     }
     echo '</table></body></html>';
@@ -474,7 +474,7 @@ if ($exportMode === 'print') {
             color: #fff; text-decoration: none; border: 0; cursor: pointer; font-size: 13px; font-weight: 700; font-family: inherit;
         }
         .cp-btn.on { background: #fff; color: #111; }
-        .cp-btn.primary { background: #0c54a0; }
+        .cp-btn.primary { background: #008094; }
         .cp-page {
             width: 210mm; min-height: 297mm; margin: 16px auto; background: #fff; position: relative; overflow: hidden;
             box-shadow: 0 8px 28px rgba(0,0,0,.12); border: 2.25px solid #000;
@@ -493,7 +493,7 @@ if ($exportMode === 'print') {
         .cp-titlebar .t { padding: 7px 12px; }
         .cp-titlebar .t h1 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
         .cp-titlebar .t small { display: block; font-size: 10.5px; font-weight: 700; color: #475569; margin-top: 1px; }
-        .cp-titlebar .d { background: #0c54a0; color: #fff; padding: 6px 14px; text-align: center; min-width: 46mm; }
+        .cp-titlebar .d { background: #008094; color: #fff; padding: 6px 14px; text-align: center; min-width: 46mm; }
         .cp-titlebar .d .l { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .9; }
         .cp-titlebar .d .v { font-size: 15px; font-weight: 800; }
         .cp-titlebar .d .w { font-size: 10.5px; font-weight: 700; }
@@ -510,7 +510,7 @@ if ($exportMode === 'print') {
         .cp-kpi.l2 { background: #f0fdf4; border-color: #86efac; } .cp-kpi.l2 .v, .cp-kpi.l2 .l { color: #15803d; }
         .cp-kpi.d { background: #eef2ff; border-color: #a5b4fc; } .cp-kpi.d .v, .cp-kpi.d .l { color: #4338ca; }
         .cp-sub {
-            margin: 4px 0 5px; padding-left: 7px; border-left: 4px solid #0c54a0;
+            margin: 4px 0 5px; padding-left: 7px; border-left: 4px solid #008094;
             font-size: 12px; font-weight: 800; text-transform: uppercase; color: #1e293b; letter-spacing: .03em;
         }
         .cp-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; margin-bottom: 10px; }
@@ -519,7 +519,7 @@ if ($exportMode === 'print') {
         .cp-table .ctr { text-align: center; }
         .cp-table tbody tr:nth-child(even) td { background: #f8fafc; }
         .cp-table tr.sub td { background: #f1f5f9 !important; font-weight: 800; }
-        .cp-table tr.dept td { background: #e3edf8 !important; color: #063263; font-weight: 800; text-transform: uppercase; font-size: 10.5px; }
+        .cp-table tr.dept td { background: #d9eef0 !important; color: #004d5a; font-weight: 800; text-transform: uppercase; font-size: 10.5px; }
         .cp-table tr.grand td { background: #1e293b !important; color: #fff; font-weight: 800; }
         .cp-table .code { font-weight: 800; }
         .cp-table .tk { color: #15803d; font-weight: 800; font-size: 12px; }
@@ -769,14 +769,14 @@ require_once __DIR__ . '/../includes/header.php';
 
 /* Hero */
 .cm-hero { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 18px 20px;
-    background: linear-gradient(120deg, #f3f7fc 0%, #ffffff 55%); border-color: #dbe7f5; }
+    background: linear-gradient(120deg, #f0f8f9 0%, #ffffff 55%); border-color: #dbe7f5; }
 .cm-hero-left { display: flex; align-items: center; gap: 14px; }
 .cm-hero-ico { width: 54px; height: 54px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; color: #fff;
-    background: linear-gradient(135deg, #0c54a0, #063263); box-shadow: 0 8px 20px rgba(12, 84, 160, .25); flex-shrink: 0; }
+    background: linear-gradient(135deg, #008094, #004d5a); box-shadow: 0 8px 20px rgba(0, 128, 148, .25); flex-shrink: 0; }
 .cm-hero h1 { margin: 0; font-size: 22px; font-weight: 800; color: #0f172a; }
 .cm-hero-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 5px; font-size: 13px; color: #475569; }
 .cm-date-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; background: #0f172a; color: #fff; font-weight: 700; font-size: 12.5px; }
-.cm-tag { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; background: #e3edf8; color: #08407c; text-transform: uppercase; letter-spacing: .04em; }
+.cm-tag { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; background: #d9eef0; color: #006070; text-transform: uppercase; letter-spacing: .04em; }
 .cm-hero-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .cm-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 800; }
 .cm-status.open { background: #dcfce7; color: #15803d; }
@@ -786,15 +786,15 @@ require_once __DIR__ . '/../includes/header.php';
     text-decoration: none; border: 1px solid #e2e8f0; background: #fff; color: #1e293b; cursor: pointer; font-family: inherit; line-height: 1; }
 .cm-btn:hover { border-color: #cbd5e1; background: #f8fafc; }
 .cm-btn.xl i { color: #15803d; }
-.cm-btn.pdf { background: #0c54a0; border-color: #0c54a0; color: #fff; }
-.cm-btn.pdf:hover { background: #08407c; }
+.cm-btn.pdf { background: #008094; border-color: #008094; color: #fff; }
+.cm-btn.pdf:hover { background: #006070; }
 .cm-drop { position: relative; }
 .cm-drop-menu { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 250px; padding: 6px;
     background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 14px 34px rgba(15, 23, 42, .14); }
 .cm-drop.open .cm-drop-menu { display: block; }
 .cm-drop-menu a { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; border-radius: 8px; text-decoration: none; color: #0f172a; }
-.cm-drop-menu a:hover { background: #f3f7fc; }
-.cm-drop-menu a i { margin-top: 2px; width: 16px; color: #0c54a0; }
+.cm-drop-menu a:hover { background: #f0f8f9; }
+.cm-drop-menu a i { margin-top: 2px; width: 16px; color: #008094; }
 .cm-drop-menu a strong { display: block; font-size: 13px; }
 .cm-drop-menu a small { display: block; font-size: 11.5px; color: #64748b; }
 
@@ -806,10 +806,10 @@ require_once __DIR__ . '/../includes/header.php';
 .cm-date-row { display: flex; gap: 6px; }
 .cm-date-row .form-control { flex: 1; min-width: 0; }
 .cm-icon-btn { width: 38px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #334155; text-decoration: none; }
-.cm-icon-btn:hover { background: #f3f7fc; color: #0c54a0; border-color: #cfe0f3; }
+.cm-icon-btn:hover { background: #f0f8f9; color: #008094; border-color: #c5e6ea; }
 .cm-quick { display: flex; gap: 6px; margin-top: 8px; }
 .cm-quick a { font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px; background: #fff; border: 1px solid #e2e8f0; color: #334155; text-decoration: none; }
-.cm-quick a.on, .cm-quick a:hover { background: #0c54a0; border-color: #0c54a0; color: #fff; }
+.cm-quick a.on, .cm-quick a:hover { background: #008094; border-color: #008094; color: #fff; }
 .cm-filter-btns { display: flex; gap: 8px; }
 .cm-filter-btns .btn-primary, .cm-filter-btns .btn-secondary { white-space: nowrap; }
 
@@ -822,8 +822,8 @@ require_once __DIR__ . '/../includes/header.php';
 .cm-persons { display: inline-block; padding: 2px 8px; border-radius: 6px; background: #0f172a; color: #fff; font-size: 11.5px; font-weight: 800; }
 .cm-namelist { margin-top: 4px; font-size: 12.5px; color: #334155; line-height: 1.45; }
 .cm-remark { margin-top: 3px; font-size: 11.5px; color: #64748b; }
-.cm-del { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #fecaca; background: #f3f7fc; color: #b91c1c; cursor: pointer; }
-.cm-del:hover { background: #0c54a0; color: #fff; border-color: #0c54a0; }
+.cm-del { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #fecaca; background: #f0f8f9; color: #b91c1c; cursor: pointer; }
+.cm-del:hover { background: #008094; color: #fff; border-color: #008094; }
 .cm-kpi { padding: 16px 18px; display: flex; align-items: center; gap: 14px; position: relative; overflow: hidden; }
 .cm-kpi::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--k); }
 .cm-kpi-ico { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; background: var(--kb); color: var(--k); }
@@ -841,8 +841,8 @@ require_once __DIR__ . '/../includes/header.php';
 .cm-tab-btns { display: inline-flex; padding: 4px; border-radius: 10px; background: #f1f5f9; gap: 4px; }
 .cm-tab-btn { border: 0; background: transparent; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; display: inline-flex; gap: 7px; align-items: center; }
 .cm-tab-btn .n { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: #e2e8f0; color: #334155; }
-.cm-tab-btn.on { background: #fff; color: #0c54a0; box-shadow: 0 1px 4px rgba(15, 23, 42, .1); }
-.cm-tab-btn.on .n { background: #e3edf8; color: #08407c; }
+.cm-tab-btn.on { background: #fff; color: #008094; box-shadow: 0 1px 4px rgba(15, 23, 42, .1); }
+.cm-tab-btn.on .n { background: #d9eef0; color: #006070; }
 .cm-legend { display: flex; gap: 12px; font-size: 12px; color: #64748b; font-weight: 600; flex-wrap: wrap; }
 .cm-tab-pane { display: none; padding: 14px; }
 .cm-tab-pane.on { display: block; }
@@ -851,9 +851,9 @@ require_once __DIR__ . '/../includes/header.php';
 .cm-group { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
 .cm-group:last-child { margin-bottom: 0; }
 .cm-group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px;
-    background: #f3f7fc; border-bottom: 1px solid #dbe7f5; cursor: pointer; user-select: none; }
-.cm-group-title { display: flex; align-items: center; gap: 9px; font-weight: 800; color: #063263; font-size: 13.5px; text-transform: uppercase; letter-spacing: .03em; }
-.cm-group-title .cnt { font-size: 11.5px; padding: 2px 9px; border-radius: 999px; background: #fff; color: #08407c; border: 1px solid #cfe0f3; text-transform: none; letter-spacing: 0; }
+    background: #f0f8f9; border-bottom: 1px solid #dbe7f5; cursor: pointer; user-select: none; }
+.cm-group-title { display: flex; align-items: center; gap: 9px; font-weight: 800; color: #004d5a; font-size: 13.5px; text-transform: uppercase; letter-spacing: .03em; }
+.cm-group-title .cnt { font-size: 11.5px; padding: 2px 9px; border-radius: 999px; background: #fff; color: #006070; border: 1px solid #c5e6ea; text-transform: none; letter-spacing: 0; }
 .cm-group-title .car { transition: transform .15s ease; font-size: 12px; }
 .cm-group.collapsed .cm-group-title .car { transform: rotate(-90deg); }
 .cm-group.collapsed .cm-group-body { display: none; }
@@ -872,7 +872,7 @@ require_once __DIR__ . '/../includes/header.php';
 .cm-table .ctr { text-align: center; }
 .cm-code { display: inline-block; padding: 3px 8px; border-radius: 6px; background: #f1f5f9; font-weight: 800; font-size: 12px; color: #0f172a; font-family: Consolas, monospace; }
 .cm-name { color: #0f172a; font-weight: 700; text-decoration: none; }
-.cm-name:hover { color: #0c54a0; }
+.cm-name:hover { color: #008094; }
 .cm-desig { display: block; font-size: 11.5px; color: #64748b; margin-top: 1px; }
 .cm-yes { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 12px; }
 .cm-yes.bf { background: #fef3c7; color: #b45309; }
@@ -884,7 +884,7 @@ require_once __DIR__ . '/../includes/header.php';
 .cm-table tfoot td { padding: 10px 12px; font-weight: 800; font-size: 13px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
 .cm-table.sum tfoot td { background: #1e293b; color: #fff; }
 .cm-bar { height: 7px; border-radius: 999px; background: #f1f5f9; overflow: hidden; min-width: 90px; }
-.cm-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6d9fd6, #0c54a0); }
+.cm-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6d9fd6, #008094); }
 
 .cm-empty { text-align: center; padding: 46px 10px; color: #64748b; }
 .cm-empty i { display: block; font-size: 34px; color: #cbd5e1; margin-bottom: 10px; }

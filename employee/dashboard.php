@@ -981,7 +981,7 @@ $denied = isset($_GET['msg']) && $_GET['msg'] === 'denied';
     if ($popupCompanyName === '') {
         $popupCompanyName = getCompanyName();
     }
-    $popupLogoSrc = $logoSrc ?? app_url('assets/images/logo-placeholder.svg');
+    $popupLogoSrc = $logoSrc ?? app_url('assets/images/endoc-logo.png');
 ?>
 <div class="co-about-modal" id="coAboutModal" role="dialog" aria-modal="true" aria-labelledby="coAboutTitle">
     <div class="co-about-backdrop"></div>
@@ -992,7 +992,7 @@ $denied = isset($_GET['msg']) && $_GET['msg'] === 'denied';
                     <img src="<?php echo htmlspecialchars($popupLogoSrc); ?>"
                          alt="<?php echo htmlspecialchars($popupCompanyName); ?>"
                          class="co-about-logo"
-                         onerror="this.src='<?php echo app_url('assets/images/logo-placeholder.svg'); ?>'">
+                         onerror="this.src='<?php echo app_url('assets/images/endoc-logo.png'); ?>'">
                 </div>
                 <div class="co-about-brand-text">
                     <h2 id="coAboutTitle"><?php echo htmlspecialchars($popupCompanyName); ?></h2>

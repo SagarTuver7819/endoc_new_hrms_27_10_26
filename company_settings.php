@@ -20,7 +20,7 @@ $conn = getDBConnection();
 ensureCompanySettingsSchema($conn);
 
 $current = [
-    'company_name'    => 'Fishfa Rubbers Limited',
+    'company_name'    => 'Endoc Biotech Pvt Ltd',
     'login_logo'      => null,
     'dashboard_logo'  => null,
     'header_details'  => '',
@@ -223,7 +223,7 @@ $sidebarActive = 'settings';
 
 require_once __DIR__ . '/includes/header.php';
 
-$defaultLogo = 'assets/images/logo-placeholder.svg';
+$defaultLogo = 'assets/images/endoc-logo.png';
 $previewLogin = (!empty($current['login_logo']) && file_exists(__DIR__ . '/' . $current['login_logo']))
     ? $current['login_logo'] : $defaultLogo;
 $previewDash = (!empty($current['dashboard_logo']) && file_exists(__DIR__ . '/' . $current['dashboard_logo']))
@@ -258,7 +258,7 @@ $previewDash = (!empty($current['dashboard_logo']) && file_exists(__DIR__ . '/' 
                 <div class="form-group">
                     <label for="company_name">Company Name</label>
                     <input type="text" id="company_name" name="company_name" class="form-control"
-                           value="<?php echo htmlspecialchars($current['company_name'] ?? 'Fishfa Rubbers Limited'); ?>" required>
+                           value="<?php echo htmlspecialchars($current['company_name'] ?? 'Endoc Biotech Pvt Ltd'); ?>" required>
                 </div>
 
                 <div class="logo-split-grid">
@@ -374,12 +374,12 @@ $previewDash = (!empty($current['dashboard_logo']) && file_exists(__DIR__ . '/' 
                 </div>
             </div>
 
-            <p class="preview-name"><?php echo htmlspecialchars($current['company_name'] ?? 'Fishfa Rubbers Limited'); ?></p>
+            <p class="preview-name"><?php echo htmlspecialchars($current['company_name'] ?? 'Endoc Biotech Pvt Ltd'); ?></p>
 
             <div class="doc-preview-sample">
                 <p class="preview-label">Document header</p>
                 <div class="doc-preview-box">
-                    <strong><?php echo htmlspecialchars($current['company_name'] ?? 'Fishfa Rubbers Limited'); ?></strong>
+                    <strong><?php echo htmlspecialchars($current['company_name'] ?? 'Endoc Biotech Pvt Ltd'); ?></strong>
                     <?php if (trim((string) ($current['header_details'] ?? '')) !== ''): ?>
                         <div class="doc-preview-text"><?php echo nl2br(htmlspecialchars($current['header_details'])); ?></div>
                     <?php else: ?>

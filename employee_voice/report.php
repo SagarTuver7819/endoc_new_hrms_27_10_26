@@ -85,7 +85,7 @@ require_once __DIR__ . '/../includes/header.php';
 
     <div class="form-page-card">
         <div class="form-page-header">
-            <h1><i class="fa-solid fa-chart-column" style="color:#0c54a0;"></i> Employee Voice Report</h1>
+            <h1><i class="fa-solid fa-chart-column" style="color:#008094;"></i> Employee Voice Report</h1>
             <p>Admin / HR report — employee complaints by Grievance, Suggestions &amp; Safety</p>
         </div>
 
@@ -302,9 +302,9 @@ require_once __DIR__ . '/../includes/header.php';
 .ev-rpt-type-tab strong { font-size: 18px; }
 .ev-rpt-type-tab:hover { border-color: #cbd5e1; box-shadow: 0 4px 14px rgba(15,23,42,.06); }
 .ev-rpt-type-tab.is-active {
-    background: var(--ev-bg, #f3f7fc);
-    border-color: var(--ev-c, #0c54a0);
-    color: var(--ev-c, #08407c);
+    background: var(--ev-bg, #f0f8f9);
+    border-color: var(--ev-c, #008094);
+    color: var(--ev-c, #006070);
 }
 @media (max-width: 900px) {
     .ev-rpt-type-tabs { grid-template-columns: 1fr 1fr; }

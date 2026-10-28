@@ -1,13 +1,14 @@
 /* Recruitment public apply — responsive phone / tablet / desktop */
 :root {
-    --brand: #0c54a0;
-    --brand-dark: #08407c;
-    --brand-soft: #e7eef8;
+    --brand: #008094;
+    --brand-dark: #006070;
+    --brand-soft: #e6f4f5;
+    --brand-accent: #8B3A36;
     --ink: #111;
     --muted: #6b7280;
     --line: #e5e7eb;
     --surface: #fff;
-    --page: #f3f4f6;
+    --page: #f0f4f5;
     --radius: 14px;
     --shadow: 0 12px 40px rgba(15, 23, 42, 0.1);
 }
@@ -29,7 +30,7 @@ body.rec-page {
 }
 .rec-bg-a {
     width: 360px; height: 360px; top: -10%; left: -8%;
-    background: rgba(12, 84, 160, 0.16);
+    background: rgba(0, 128, 148, 0.16);
 }
 .rec-bg-b {
     width: 320px; height: 320px; bottom: -12%; right: -6%;
@@ -109,7 +110,7 @@ body.rec-page {
 .rec-btn:active { transform: scale(0.98); }
 .rec-btn-primary {
     background: linear-gradient(135deg, var(--brand), var(--brand-dark));
-    color: #fff; box-shadow: 0 8px 20px rgba(12, 84, 160, 0.28);
+    color: #fff; box-shadow: 0 8px 20px rgba(0, 128, 148, 0.28);
 }
 .rec-btn-ghost {
     background: #fff; color: #111; border: 1px solid var(--line);
@@ -265,11 +266,11 @@ body.rec-page {
 .rec-field textarea:focus {
     outline: none;
     border-color: var(--brand);
-    box-shadow: 0 0 0 3px rgba(12, 84, 160, 0.12);
+    box-shadow: 0 0 0 3px rgba(0, 128, 148, 0.12);
 }
 .rec-field input[type="checkbox"]:focus,
 .rec-field input[type="radio"]:focus {
-    box-shadow: 0 0 0 3px rgba(12, 84, 160, 0.18);
+    box-shadow: 0 0 0 3px rgba(0, 128, 148, 0.18);
 }
 .rec-field small { color: var(--muted); font-size: 11px; }
 .rec-or {
@@ -335,7 +336,7 @@ body.rec-page {
     padding: 12px 14px;
     border-radius: 12px;
     background: var(--brand-soft);
-    border: 1px solid #cfe0f3;
+    border: 1px solid #c5e6ea;
 }
 .rec-exp-total span {
     font-size: 12px;

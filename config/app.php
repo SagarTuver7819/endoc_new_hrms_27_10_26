@@ -95,7 +95,7 @@ if (!defined('APP_BASE')) {
     );
 
     if (!$isLocalHost) {
-        if ($base === '/fishfa_rubber') {
+        if ($base === '/endoc_new_hrms_27_10_26') {
             $base = '';
         }
         if (defined('APP_URL') && APP_URL !== '') {

@@ -18,7 +18,7 @@ if (!isAdmin() && !isHR() && !(function_exists('isStaffUser') && isStaffUser()) 
 
 ensureRecruitmentTables();
 $applyUrl = recruitmentApplyUrl();
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Fishfa Rubbers Limited';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 
 $logoPath = function_exists('getLoginLogo') ? getLoginLogo() : '';
 if (!$logoPath && function_exists('getCompanyLogo')) {
@@ -32,7 +32,7 @@ if ($logoSrc && strpos($logoSrc, 'http') !== 0 && strpos($logoSrc, '/') !== 0) {
     $logoSrc = app_url($logoSrc);
 }
 if (!$logoSrc) {
-    $logoSrc = app_url('assets/images/logo-placeholder.svg');
+    $logoSrc = app_url('assets/images/endoc-logo.png');
 }
 
 $pageTitle = 'Recruitment QR';
@@ -71,7 +71,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <img src="<?php echo htmlspecialchars($logoSrc); ?>"
                      alt="<?php echo htmlspecialchars($companyName); ?>"
                      class="rec-qr-poster-logo"
-                     onerror="this.src='<?php echo app_url('assets/images/logo-placeholder.svg'); ?>'">
+                     onerror="this.src='<?php echo app_url('assets/images/endoc-logo.png'); ?>'">
                 <div class="rec-qr-poster-brand">
                     <strong><?php echo htmlspecialchars(strtoupper($companyName)); ?></strong>
                     <span>CAREERS · SCAN TO APPLY</span>
@@ -115,7 +115,7 @@ require_once __DIR__ . '/../includes/header.php';
     gap: 14px;
     margin-bottom: 18px;
     padding-bottom: 14px;
-    border-bottom: 3px solid #0c54a0;
+    border-bottom: 3px solid #008094;
     background: #ffffff !important;
 }
 .rec-qr-poster-logo {
@@ -130,7 +130,7 @@ require_once __DIR__ . '/../includes/header.php';
     display: block;
     font-size: 15px;
     font-weight: 800;
-    color: #08407c !important;
+    color: #006070 !important;
     line-height: 1.25;
 }
 .rec-qr-poster-brand span {

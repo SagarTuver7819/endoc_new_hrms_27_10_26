@@ -14,7 +14,7 @@ if ($logoSrc && strpos($logoSrc, 'http') !== 0 && strpos($logoSrc, '/') !== 0) {
     $logoSrc = app_url($logoSrc);
 }
 if (!$logoSrc) {
-    $logoSrc = app_url('assets/images/logo-placeholder.svg');
+    $logoSrc = app_url('assets/images/endoc-logo.png');
 }
 $cssV = (int) @filemtime(__DIR__ . '/../assets/css/recruitment_apply.css');
 ?>
@@ -24,6 +24,8 @@ $cssV = (int) @filemtime(__DIR__ . '/../assets/css/recruitment_apply.css');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Application Submitted</title>
+    <link rel="icon" type="image/png" href="<?php echo app_url('assets/images/fav.png'); ?>">
+    <link rel="shortcut icon" type="image/png" href="<?php echo app_url('assets/images/fav.png'); ?>">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="<?php echo app_url('assets/css/recruitment_apply.css'); ?>?v=<?php echo $cssV; ?>">
@@ -36,7 +38,7 @@ $cssV = (int) @filemtime(__DIR__ . '/../assets/css/recruitment_apply.css');
 <main class="rec-wrap rec-thanks-wrap">
     <div class="rec-thanks">
         <img src="<?php echo htmlspecialchars($logoSrc); ?>" alt="" class="rec-thanks-logo"
-             onerror="this.src='<?php echo app_url('assets/images/logo-placeholder.svg'); ?>'">
+             onerror="this.src='<?php echo app_url('assets/images/endoc-logo.png'); ?>'">
         <div class="rec-thanks-ico"><i class="fa-solid fa-circle-check"></i></div>
         <h1>Application Submitted</h1>
         <p>Thank you for applying to <strong><?php echo htmlspecialchars($companyName); ?></strong>.</p>

@@ -3,7 +3,7 @@
  * Theme tokens + when to use sidebar
  * Include is optional — CSS already uses :root in style.css
  *
- * SETUP RULE (Fishfa Rubbers HRMS):
+ * SETUP RULE (Endoc Biotech HRMS):
  * ------------------------------------------------------------
  * 1) DASHBOARD (boxes only, NO sidebar)
  *    - Full-width card grid: Masters + Department Workspace + Reports
@@ -24,8 +24,9 @@
  *    Sidebar → Department submenu → department.php (boxes, not direct list)
  *    Masters box → masters/index.php (hub boxes + sidebar)
  *
- * Brand colors (keep consistent):
- *    --brand: #0c54a0
- *    --ink:   #1a2332
- *    --page:  #f0f3f7
+ * Brand colors (keep consistent — Endoc logo / website):
+ *    --brand:        #008094  (teal)
+ *    --brand-accent: #8B3A36  (maroon)
+ *    --ink:          #1a2332
+ *    --page:         #f0f4f5
  */

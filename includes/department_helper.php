@@ -1,6 +1,6 @@
 <?php
 /**
- * Canonical Fishfa Rubbers departments (reclaim rubber / rCB plant) + duplicate merge / alias resolution.
+ * Canonical Endoc Biotech Pvt Ltd departments + duplicate merge / alias resolution.
  */
 
 require_once __DIR__ . '/department_icons.php';
@@ -8,8 +8,8 @@ require_once __DIR__ . '/department_icons.php';
 function canonicalDepartmentsCatalog()
 {
     return [
-        ['ADMINISTRATION', 'fa-landmark', '#1E56A0', 1],
-        ['HUMAN RESOURCE MANAGEMENT', 'fa-users', '#0C54A0', 2],
+        ['ADMINISTRATION', 'fa-landmark', '#008094', 1],
+        ['HUMAN RESOURCE MANAGEMENT', 'fa-users', '#008094', 2],
         ['ACCOUNTS AND FINANCE', 'fa-file-invoice-dollar', '#2ECC71', 3],
         ['SALES & MARKETING - DOMESTIC', 'fa-handshake', '#1ABC9C', 4],
         ['EXPORT & INTERNATIONAL MARKETING', 'fa-earth-asia', '#0984E3', 5],
@@ -21,25 +21,18 @@ function canonicalDepartmentsCatalog()
         ['COMPLIANCE & CERTIFICATION', 'fa-certificate', '#0D9488', 11],
         ['EHS (ENVIRONMENT, HEALTH & SAFETY)', 'fa-leaf', '#00B894', 12],
         ['PRODUCTION PLANNING', 'fa-calendar-check', '#6C5CE7', 13],
-        ['RAW MATERIAL YARD', 'fa-dumpster', '#7F8C8D', 14],
-        ['SORTING & CUTTING', 'fa-scissors', '#34495E', 15],
-        ['CRACKING & GRINDING', 'fa-gear', '#95A5A6', 16],
-        ['DEVULCANIZATION', 'fa-temperature-high', '#E74C3C', 17],
-        ['MIXING', 'fa-blender', '#9B59B6', 18],
-        ['REFINING', 'fa-layer-group', '#8E44AD', 19],
-        ['STRAINER', 'fa-filter', '#F39C12', 20],
-        ['BUTYL RECLAIM', 'fa-circle-dot', '#1E56A0', 21],
-        ['EPDM RECLAIM', 'fa-ring', '#2C3E50', 22],
-        ['WHOLE TIRE & NATURAL TUBE RECLAIM', 'fa-life-ring', '#636E72', 23],
-        ['rCB / PYROLYSIS PLANT', 'fa-industry', '#2D3436', 24],
-        ['PACKING', 'fa-box', '#E67E22', 25],
-        ['DISPATCH & LOGISTICS', 'fa-truck', '#00B894', 26],
-        ['MECHANICAL MAINTENANCE', 'fa-wrench', '#FD79A8', 27],
-        ['ELECTRICAL', 'fa-bolt', '#F1C40F', 28],
-        ['BOILER & UTILITY', 'fa-fire-burner', '#C0392B', 29],
-        ['SECURITY', 'fa-shield-halved', '#5B6CFF', 30],
-        ['HOUSEKEEPING', 'fa-broom', '#3498DB', 31],
-        ['CANTEEN', 'fa-utensils', '#FDCB6E', 32],
+        ['PRODUCTION', 'fa-industry', '#2D3436', 14],
+        ['FORMULATION', 'fa-flask-vial', '#9B59B6', 15],
+        ['PROCESS / MANUFACTURING', 'fa-gears', '#34495E', 16],
+        ['FILLING & PACKAGING', 'fa-box', '#E67E22', 17],
+        ['WAREHOUSE', 'fa-warehouse', '#7F8C8D', 18],
+        ['DISPATCH & LOGISTICS', 'fa-truck', '#00B894', 19],
+        ['MECHANICAL MAINTENANCE', 'fa-wrench', '#FD79A8', 20],
+        ['ELECTRICAL', 'fa-bolt', '#F1C40F', 21],
+        ['UTILITY', 'fa-fire-burner', '#C0392B', 22],
+        ['SECURITY', 'fa-shield-halved', '#5B6CFF', 23],
+        ['HOUSEKEEPING', 'fa-broom', '#3498DB', 24],
+        ['CANTEEN', 'fa-utensils', '#FDCB6E', 25],
     ];
 }
 
@@ -88,20 +81,20 @@ function departmentAliasMap()
         'SAFETY' => 'EHS (ENVIRONMENT, HEALTH & SAFETY)',
         'ENVIRONMENT' => 'EHS (ENVIRONMENT, HEALTH & SAFETY)',
         'PPC' => 'PRODUCTION PLANNING',
-        'GRINDING' => 'CRACKING & GRINDING',
-        'CRACKER' => 'CRACKING & GRINDING',
-        'DEVULCANIZER' => 'DEVULCANIZATION',
-        'REFINER' => 'REFINING',
-        'PYROLYSIS' => 'rCB / PYROLYSIS PLANT',
-        'RCB' => 'rCB / PYROLYSIS PLANT',
+        'MANUFACTURING' => 'PROCESS / MANUFACTURING',
+        'PROCESS' => 'PROCESS / MANUFACTURING',
+        'PACKING' => 'FILLING & PACKAGING',
+        'PACKAGING' => 'FILLING & PACKAGING',
+        'FILLING' => 'FILLING & PACKAGING',
         'DISPATCH' => 'DISPATCH & LOGISTICS',
         'LOGISTICS' => 'DISPATCH & LOGISTICS',
         'TRANSPORT' => 'DISPATCH & LOGISTICS',
         'MAINTENANCE' => 'MECHANICAL MAINTENANCE',
-        'UTILITY' => 'BOILER & UTILITY',
-        'BOILER' => 'BOILER & UTILITY',
+        'BOILER' => 'UTILITY',
+        'BOILER & UTILITY' => 'UTILITY',
         'STORE AND PURCHASE' => 'PURCHASE',
         'STORE PURCHASE' => 'PURCHASE',
+        'RAW MATERIAL YARD' => 'WAREHOUSE',
     ];
 
     $map = [];

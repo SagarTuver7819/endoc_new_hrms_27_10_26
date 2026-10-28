@@ -11,7 +11,7 @@ if (!defined('DB_HOST')) {
     define('DB_PORT', env('DB_PORT', '3306'));
     define('DB_USER', env('DB_USER', 'root'));
     define('DB_PASS', env('DB_PASS', ''));
-    define('DB_NAME', env('DB_NAME', 'fishfa_rubber_hrms'));
+    define('DB_NAME', env('DB_NAME', 'endoc_hrms'));
 }
 if (!defined('DB_PERSISTENT')) {
     // .env DB_PERSISTENT=1 → reuse pooled MySQL connections (each getDBConnection() is ~0.3 ms instead of ~10 ms)

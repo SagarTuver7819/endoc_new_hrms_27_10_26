@@ -1,10 +1,10 @@
 -- =====================================================
--- Fishfa Rubbers HRMS - Master Tables
+-- Endoc Biotech HRMS - Master Tables
 -- Safe to run multiple times (IF NOT EXISTS)
 -- Departments table already exists from hrms_database.sql
 -- =====================================================
 
-USE fishfa_rubber_hrms;
+USE endoc_hrms;
 
 CREATE TABLE IF NOT EXISTS designations (
     id INT AUTO_INCREMENT PRIMARY KEY,

@@ -210,7 +210,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php foreach ($ticket['attachments'] as $a): ?>
                     <li>
                         <a target="_blank" href="<?php echo app_url('employee/voice/attachment.php?id=' . (int) $a['id']); ?>">
-                            <i class="fa-solid fa-paperclip" style="color:#0c54a0;"></i>
+                            <i class="fa-solid fa-paperclip" style="color:#008094;"></i>
                             <?php echo htmlspecialchars((string) $a['file_name']); ?>
                             <small><?php echo number_format(((int) $a['file_size']) / 1024, 1); ?> KB</small>
                         </a>

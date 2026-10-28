@@ -30,7 +30,7 @@ $row = getRecruitmentApplication($id) ?: $row;
 $brand = getCompanyDocumentBranding();
 $company = trim((string) $brand['company_name']);
 if ($company === '') {
-    $company = 'Fishfa Rubbers Limited';
+    $company = 'Endoc Biotech Pvt Ltd';
 }
 $companyShort = $company;
 
@@ -95,7 +95,7 @@ $workLocation = $companyShort . ', Rajkot, Gujarat';
             font-size: 13px;
         }
         .bar button {
-            background: #0c54a0;
+            background: #008094;
             color: #fff;
             border: 0;
             padding: 8px 12px;
@@ -138,7 +138,7 @@ $workLocation = $companyShort . ', Rajkot, Gujarat';
         .cdoc-header-text .cdoc-company {
             font-size: 24px;
             font-weight: 800;
-            color: #08407c;
+            color: #006070;
             font-family: Calibri, Candara, Segoe UI, Arial, sans-serif;
             margin: 0 0 4px;
             line-height: 1.2;
@@ -353,7 +353,7 @@ $workLocation = $companyShort . ', Rajkot, Gujarat';
                 </p>
 
                 <p>
-                    We warmly welcome you to our Fishfa family and hope it will be the beginning of a long
+                    We warmly welcome you to our Endoc family and hope it will be the beginning of a long
                     and mutually beneficial future ahead.
                 </p>
 

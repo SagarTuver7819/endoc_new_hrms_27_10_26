@@ -67,7 +67,7 @@ $chunks = $rows ? array_chunk($rows, $perPage) : [[]];
             color: #fff; text-decoration: none; border: 0; cursor: pointer;
             font-size: 13px; font-weight: 700; font-family: inherit;
         }
-        .evp-btn.primary { background: #0c54a0; }
+        .evp-btn.primary { background: #008094; }
         .evp-page {
             width: 210mm; min-height: 297mm; margin: 16px auto;
             background: #fff; position: relative; overflow: hidden;
@@ -81,7 +81,7 @@ $chunks = $rows ? array_chunk($rows, $perPage) : [[]];
         .cdoc-header { flex-shrink: 0; margin-bottom: 10px; }
         .cdoc-header-logo { width: 78px; height: 78px; }
         .cdoc-header-text .cdoc-company {
-            font-size: 22px; font-weight: 800; color: #08407c; margin: 0 0 4px;
+            font-size: 22px; font-weight: 800; color: #006070; margin: 0 0 4px;
             text-transform: uppercase;
         }
         .cdoc-header-text .cdoc-header-details {

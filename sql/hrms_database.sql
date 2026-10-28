@@ -1,10 +1,10 @@
 -- =====================================================
--- FISHFA RUBBERS HRMS - Database Setup
+-- ENDOC BIOTECH HRMS - Database Setup
 -- Import this file in phpMyAdmin or run via MySQL CLI
 -- =====================================================
 
-CREATE DATABASE IF NOT EXISTS fishfa_rubber_hrms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE fishfa_rubber_hrms;
+CREATE DATABASE IF NOT EXISTS endoc_hrms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE endoc_hrms;
 
 -- -----------------------------------------------------
 -- Table: departments (Department Master)
@@ -86,7 +86,7 @@ INSERT INTO departments (department_name, icon_class, icon_color, sort_order) VA
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS company_settings (
     id INT PRIMARY KEY DEFAULT 1,
-    company_name VARCHAR(150) NOT NULL DEFAULT 'Fishfa Rubbers',
+    company_name VARCHAR(150) NOT NULL DEFAULT 'Endoc Biotech Pvt Ltd',
     company_logo VARCHAR(255) DEFAULT NULL,
     login_logo VARCHAR(255) DEFAULT NULL,
     dashboard_logo VARCHAR(255) DEFAULT NULL,
@@ -94,8 +94,12 @@ CREATE TABLE IF NOT EXISTS company_settings (
 ) ENGINE=InnoDB;
 
 INSERT INTO company_settings (id, company_name, company_logo, login_logo, dashboard_logo)
-VALUES (1, 'Fishfa Rubbers', NULL, NULL, NULL)
-ON DUPLICATE KEY UPDATE id = id;
+VALUES (1, 'Endoc Biotech Pvt Ltd', 'assets/images/endoc-logo.png', 'assets/images/endoc-logo.png', 'assets/images/endoc-logo.png')
+ON DUPLICATE KEY UPDATE
+  company_name = VALUES(company_name),
+  company_logo = COALESCE(NULLIF(company_logo, ''), VALUES(company_logo)),
+  login_logo = COALESCE(NULLIF(login_logo, ''), VALUES(login_logo)),
+  dashboard_logo = COALESCE(NULLIF(dashboard_logo, ''), VALUES(dashboard_logo));
 
 -- -----------------------------------------------------
 -- Table: circulars (HR/Admin scanned company circulars)
@@ -225,9 +229,9 @@ CREATE TABLE IF NOT EXISTS department_heads (
 
 -- -----------------------------------------------------
 -- Default Users
--- Password for both: password123 (plain text for simple demo)
+-- Default login: admin / admin (plain text for simple demo)
 -- Later you can switch to password_hash() easily
 -- -----------------------------------------------------
 INSERT INTO users (username, password, full_name, role, department_id, status) VALUES
-('admin', 'password123', 'System Admin', 'admin', 1, 1),
-('hr', 'password123', 'HR Manager', 'hr', 2, 1);
+('admin', 'admin', 'Endoc Admin', 'admin', 1, 1),
+('hr', 'admin', 'HR Manager', 'hr', 2, 1);

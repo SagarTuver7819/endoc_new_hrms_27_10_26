@@ -41,7 +41,7 @@
     font-family: inherit;
 }
 .tb-btn.active,
-.tb-btn.primary { background: #0c54a0; }
+.tb-btn.primary { background: #008094; }
 
 .af-page {
     width: 210mm;
@@ -126,7 +126,7 @@
     color: #fff;
     letter-spacing: .03em;
     text-transform: uppercase;
-    background: #0c54a0;
+    background: #008094;
     border: 1.5px solid #094587;
     padding: 3px 10px;
     line-height: 1.25;
@@ -281,7 +281,7 @@
 
 .af-blue-rule {
     height: 2px;
-    background: #0c54a0;
+    background: #008094;
     margin: 8px 0 4px;
 }
 

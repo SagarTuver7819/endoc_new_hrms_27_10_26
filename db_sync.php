@@ -1,7 +1,7 @@
 <?php
 /**
  * DB Sync — apply schema + seeds on live (Admin only).
- * Local:  http://localhost/fishfa_rubber/db_sync.php
+ * Local:  http://localhost/endoc_new_hrms_27_10_26/db_sync.php
  * Live:   https://<your-hrms-domain>/db_sync.php
  * Bulk employee logins (Office Staff):
  *   .../db_sync.php?bulk_logins=1
@@ -118,7 +118,7 @@ try {
 
     require_once __DIR__ . '/includes/company_content_helper.php';
     ensureCompanyContentTables($conn);
-    $log[] = 'Company History + Vision/Mission/Core Values content ready (seeded Fishfa Rubbers text).';
+    $log[] = 'Company History + Vision/Mission/Core Values content ready (seeded Endoc Biotech Pvt Ltd text).';
 
     ensureRecruitmentTables($conn);
     $log[] = 'Recruitment tables ready (applications, education, experience + uploads).';

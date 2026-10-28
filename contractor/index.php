@@ -13,14 +13,14 @@ $sidebarActive = 'contractor_hub';
 require_once __DIR__ . '/../includes/header.php';
 
 $modules = [
-    ['key' => 'employees', 'title' => 'Contractor Employee', 'icon' => 'fa-id-card', 'color' => '#0c54a0', 'url' => 'contractor/employees/index.php', 'meta' => 'Jobwork employees'],
+    ['key' => 'employees', 'title' => 'Contractor Employee', 'icon' => 'fa-id-card', 'color' => '#008094', 'url' => 'contractor/employees/index.php', 'meta' => 'Jobwork employees'],
     ['key' => 'employment', 'title' => 'Contractor Employment Details', 'icon' => 'fa-briefcase', 'color' => '#3498DB', 'url' => 'contractor/employment/index.php', 'meta' => 'Dept · Shift · PF / UAN'],
-    ['key' => 'products', 'title' => 'Product Master', 'icon' => 'fa-box', 'color' => '#08407C', 'url' => 'contractor/products/index.php', 'meta' => 'Operation · Rate · OT / R'],
+    ['key' => 'products', 'title' => 'Product Master', 'icon' => 'fa-box', 'color' => '#006070', 'url' => 'contractor/products/index.php', 'meta' => 'Operation · Rate · OT / R'],
     ['key' => 'grades', 'title' => 'Grade Master', 'icon' => 'fa-layer-group', 'color' => '#0F766E', 'url' => 'contractor/grades/index.php', 'meta' => 'Grade list'],
     ['key' => 'operations', 'title' => 'Operations Rate List', 'icon' => 'fa-table', 'color' => '#8E44AD', 'url' => 'contractor/operations/index.php', 'meta' => 'Daily qty × rate'],
     ['key' => 'register_govt', 'title' => 'Jobwork Register (Government)', 'icon' => 'fa-landmark', 'color' => '#1e3a5f', 'url' => 'payroll/register.php?type=jobwork_govt', 'meta' => 'Actual ÷ month days'],
     ['key' => 'register_actual', 'title' => 'Jobwork Register (Actual)', 'icon' => 'fa-scale-balanced', 'color' => '#0F766E', 'url' => 'payroll/register.php?type=jobwork_actual', 'meta' => 'Qty × rate as earned'],
-    ['key' => 'register_main', 'title' => 'Contractor Main Register', 'icon' => 'fa-users-line', 'color' => '#08407C', 'url' => 'payroll/register.php?type=contractor_main', 'meta' => 'Under employee salaries'],
+    ['key' => 'register_main', 'title' => 'Contractor Main Register', 'icon' => 'fa-users-line', 'color' => '#006070', 'url' => 'payroll/register.php?type=contractor_main', 'meta' => 'Under employee salaries'],
 ];
 ?>
 

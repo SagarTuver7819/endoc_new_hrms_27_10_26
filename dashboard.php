@@ -108,7 +108,7 @@ if (isAdmin() || isHR()) {
                 <i class="fa-solid fa-arrow-right dash-hub-go"></i>
             </a>
             <a href="<?php echo htmlspecialchars(app_url('masters/index.php')); ?>" class="dash-hub-card is-masters" title="All Masters">
-                <div class="dash-hub-icon" style="background:#0c54a0;"><i class="fa-solid fa-cubes"></i></div>
+                <div class="dash-hub-icon" style="background:#008094;"><i class="fa-solid fa-cubes"></i></div>
                 <div class="dash-hub-body">
                     <strong>All Masters</strong>
                     <span><?php echo (int) $masterCount; ?> Masters · CRUD</span>
@@ -141,7 +141,7 @@ if (isAdmin() || isHR()) {
             </a>
             <?php if (isAdmin()): ?>
             <a href="<?php echo htmlspecialchars(app_url('company_settings.php')); ?>" class="dash-hub-card is-admin" title="Company Logo Setup">
-                <div class="dash-hub-icon" style="background:#0C54A0;"><i class="fa-solid fa-image"></i></div>
+                <div class="dash-hub-icon" style="background:#008094;"><i class="fa-solid fa-image"></i></div>
                 <div class="dash-hub-body">
                     <strong>Company Settings</strong>
                     <span>Logo &amp; branding</span>

@@ -85,7 +85,7 @@ if ($department) {
             <div class="module-grid module-grid-sm">
                 <!-- Primary manufacturing action -->
                 <a href="<?php echo app_url('employees/index.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card masters-entry-card">
-                    <div class="module-icon" style="background-color: #0c54a0;">
+                    <div class="module-icon" style="background-color: #008094;">
                         <i class="fa-solid fa-user-plus"></i>
                     </div>
                     <div class="module-label">Join Employee</div>
@@ -171,7 +171,7 @@ if ($department) {
                     <div class="module-meta">Monthly cost · Final summary</div>
                 </a>
                 <a href="<?php echo app_url('masters/holidays/index.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #0C54A0;">
+                    <div class="module-icon" style="background-color: #008094;">
                         <i class="fa-solid fa-calendar-days"></i>
                     </div>
                     <div class="module-label">Holiday Master</div>
