@@ -99,9 +99,9 @@ if ($isOwnProfile && (isOfficeStaffRole() || !canAccess('employees', 'view', $de
     $sidebarDeptId = 0;
     $sidebarActive = 'my_profile';
 } else {
-    $sidebarMode = 'department';
+    $sidebarMode = $deptId > 0 ? 'department' : 'employees';
     $sidebarDeptId = $deptId;
-    $sidebarActive = $isDeactive ? 'exit_employee' : 'join_employee';
+    $sidebarActive = $deptId > 0 ? ($isDeactive ? 'exit_employee' : 'join_employee') : ($isDeactive ? 'exit_list' : 'all_employees');
 }
 
 ensureLeaveTables();
@@ -200,7 +200,7 @@ if ($isOwnProfile && (isOfficeStaffRole() || $from === 'self')) {
     $backUrl = app_url('employees/exit_list.php' . ($deptId > 0 ? '?department_id=' . $deptId : ''));
     $backText = 'Back to Exit Employee List';
 } else {
-    $backUrl = app_url('employees/index.php?department_id=' . $deptId);
+    $backUrl = app_url('employees/index.php' . ($deptId > 0 ? '?department_id=' . $deptId : ''));
     $backText = 'Back to Employee List';
 }
 
@@ -225,7 +225,7 @@ $tabUrl = function ($t) use ($baseQs, $year, $month) {
         <a href="<?php echo htmlspecialchars($backUrl); ?>" class="back-link">
             <i class="fa-solid fa-arrow-left"></i> <?php echo htmlspecialchars($backText); ?>
         </a>
-        <?php if (!$isOwnProfile && (!isset($_GET['from']) || $_GET['from'] !== 'all')): ?>
+        <?php if (!$isOwnProfile && (!isset($_GET['from']) || $_GET['from'] !== 'all') && $deptId > 0): ?>
         <a href="<?php echo app_url('department.php?id=' . $deptId); ?>" class="btn-secondary">
             <i class="fa-solid fa-puzzle-piece"></i> Module Boxes
         </a>
@@ -351,7 +351,7 @@ $tabUrl = function ($t) use ($baseQs, $year, $month) {
                 </a>
                 <?php endif; ?>
                 <?php if ($canEditEmployee): ?>
-                <a href="<?php echo app_url('employees/edit.php?id=' . (int) $emp['id'] . '&department_id=' . $deptId); ?>" class="btn-primary">
+                <a href="<?php echo app_url('employees/edit.php?id=' . (int) $emp['id'] . ($deptId > 0 ? '&department_id=' . $deptId : '')); ?>" class="btn-primary">
                     <i class="fa-solid fa-pen"></i> Edit Employee
                 </a>
                 <?php endif; ?>
@@ -495,7 +495,7 @@ $tabUrl = function ($t) use ($baseQs, $year, $month) {
                     <p><?php echo count($familyMembers); ?> member<?php echo count($familyMembers) === 1 ? '' : 's'; ?> linked to this employee</p>
                 </div>
                 <?php if ($canEditEmployee): ?>
-                <a class="btn-ghost view-card-action" href="<?php echo app_url('employees/edit.php?id=' . (int) $emp['id'] . '&department_id=' . $deptId); ?>">
+                <a class="btn-ghost view-card-action" href="<?php echo app_url('employees/edit.php?id=' . (int) $emp['id'] . ($deptId > 0 ? '&department_id=' . $deptId : '')); ?>">
                     <i class="fa-solid fa-pen"></i> Edit
                 </a>
                 <?php endif; ?>
@@ -506,7 +506,7 @@ $tabUrl = function ($t) use ($baseQs, $year, $month) {
                     <h4>No family members added</h4>
                     <?php if ($canEditEmployee): ?>
                     <p>Add family details from Edit Employee → Family Details section.</p>
-                    <a class="btn-primary" href="<?php echo app_url('employees/edit.php?id=' . (int) $emp['id'] . '&department_id=' . $deptId); ?>">
+                    <a class="btn-primary" href="<?php echo app_url('employees/edit.php?id=' . (int) $emp['id'] . ($deptId > 0 ? '&department_id=' . $deptId : '')); ?>">
                         <i class="fa-solid fa-plus"></i> Add Family Members
                     </a>
                     <?php else: ?>

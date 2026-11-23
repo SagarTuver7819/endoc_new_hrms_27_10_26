@@ -112,7 +112,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <strong><?php echo htmlspecialchars($department['department_name']); ?></strong>
                     (department is locked for this import)
                 <?php else: ?>
-                    All departments · Fill <code>department</code> column (exact master name)
+                    All departments · Department column is optional (if blank, stays NULL / Unassigned)
                 <?php endif; ?>
             </p>
         </div>
@@ -125,13 +125,14 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="alert alert-success" style="margin-bottom:14px;">
                 Import complete.
                 Added: <strong><?php echo (int) $result['success']; ?></strong>,
+                Updated: <strong><?php echo (int) ($result['updated'] ?? 0); ?></strong>,
                 Skipped: <strong><?php echo (int) $result['skipped']; ?></strong>,
                 Errors: <strong><?php echo (int) $result['errors']; ?></strong>
             </div>
             <?php if (!empty($result['error_log'])): ?>
                 <div class="form-section">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                        <h3 style="margin:0;"><i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> Skipped &amp; Error Details (વિગતવાર વિગતો)</h3>
+                        <h3 style="margin:0;"><i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> Skipped &amp; Error Details</h3>
                         <span style="font-size:0.85rem;color:#64748b;font-weight:600;"><?php echo count($result['error_log']); ?> Item(s)</span>
                     </div>
                     <div class="table-responsive" style="overflow-x:auto;">
@@ -141,8 +142,8 @@ require_once __DIR__ . '/../includes/header.php';
                                     <th style="padding:10px 12px;border-bottom:2px solid #cbd5e1;width:80px;">Excel Row</th>
                                     <th style="padding:10px 12px;border-bottom:2px solid #cbd5e1;width:95px;">Status</th>
                                     <th style="padding:10px 12px;border-bottom:2px solid #cbd5e1;width:190px;">Employee</th>
-                                    <th style="padding:10px 12px;border-bottom:2px solid #cbd5e1;">Problem / Reason (શા કારણે રોકાયું)</th>
-                                    <th style="padding:10px 12px;border-bottom:2px solid #cbd5e1;width:240px;">Action / Solution (ઉકેલ)</th>
+                                    <th style="padding:10px 12px;border-bottom:2px solid #cbd5e1;">Problem / Reason</th>
+                                    <th style="padding:10px 12px;border-bottom:2px solid #cbd5e1;width:240px;">Action / Solution</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -187,20 +188,21 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="form-section">
             <h3><i class="fa-solid fa-circle-info"></i> How to Import</h3>
             <ol style="line-height:1.7;margin:0;padding-left:18px;">
-                <li>Your Excel headers also work:
-                    <code>code</code>, <code>Employee Name</code>, <code>Post</code>,
-                    <code>Date of Joining</code>, <code>Date of Birth</code>,
-                    <code>Mobile Num.</code>, <code>Address</code>, <code>E-mail</code>
+                <li>Simple Excel headers:
+                    <code>SR No</code>, <code>Employee Code</code>, <code>NAME</code>,
+                    <code>Department</code>, <code>Direct/Indirect/R&amp;D</code>, <code>Staff or Worker</code>
                 </li>
                 <li>Or download the <strong>Example Excel Template</strong></li>
-                <li><code>Employee Name</code> is required</li>
+                <li><code>NAME</code> is required</li>
                 <?php if ($department): ?>
                     <li>Department is fixed to <strong><?php echo htmlspecialchars($department['department_name']); ?></strong> — no department column needed</li>
                 <?php else: ?>
-                    <li>Add a <code>department</code> column (exact master name), OR open Import from a Department page</li>
+                    <li><code>Department</code> is optional — if not in Excel, stays NULL / Unassigned</li>
                 <?php endif; ?>
-                <li>Dates: <strong>DD-MM-YYYY</strong> or <strong>YYYY-MM-DD</strong> (Excel dates also OK)</li>
-                <li>Blank <code>code</code> → auto employee code (AS… / JW…)</li>
+                <li><code>Direct/Indirect/R&amp;D</code> = Direct / Indirect / R&amp;D</li>
+                <li><code>Staff or Worker</code> = Staff / Worker (also saved as Designation if Post blank)</li>
+                <li>Blank <code>Employee Code</code> → auto code</li>
+                <li>Extra columns (mobile, DOB, address…) still work if present</li>
                 <li>Upload .xlsx / .xls / .csv and submit</li>
             </ol>
         </div>
@@ -222,32 +224,29 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="form-section">
                     <h3>Your Excel → System mapping</h3>
                     <ul style="margin:0;padding-left:18px;line-height:1.7;">
-                        <li><code>code</code> → Employee Code</li>
-                        <li><code>Employee Name</code> → Name (જ્યાં 3 શબ્દો વાળું નામ હોય દા.ત. Karan Mansukhbhai Senjaliya, ત્યાં વચ્ચેનું નામ ઓટોમેટિક <strong>Father / Husband Name</strong> માં સેવ થશે)</li>
-                        <li><code>Post</code> → Employee Type / Designation (new values auto-add in Masters)</li>
-                        <li><code>Date of Joining</code> → DOJ</li>
-                        <li><code>Date of Birth</code> / <code>Date of Brith</code> → DOB</li>
-                        <li><code>Mobile Num.</code> / <code>Mobail Num.</code> → Mobile</li>
-                        <li><code>Address</code> → Permanent + Present address</li>
-                        <li><code>E-mail</code> → Office Email</li>
+                        <li><code>SR No</code> → ignored (row number only)</li>
+                        <li><code>Employee Code</code> → Code (blank = auto)</li>
+                        <li><code>NAME</code> → Employee Name (required)</li>
                         <?php if ($department): ?>
                             <li>Department locked: <strong><?php echo htmlspecialchars($department['department_name']); ?></strong></li>
                         <?php else: ?>
-                            <li><code>department</code> — required when importing from All Employees</li>
+                            <li><code>Department</code> → Department master</li>
                         <?php endif; ?>
+                        <li><code>Direct/Indirect/R&amp;D</code> → Direct / Indirect / R&amp;D</li>
+                        <li><code>Staff or Worker</code> → Staff / Worker (+ Designation)</li>
                     </ul>
                 </div>
                 <div class="form-section">
-                    <h3>Rules</h3>
+                    <h3>Duplicate check (auto)</h3>
                     <ul style="margin:0;padding-left:18px;line-height:1.7;">
-                        <li>Duplicate employee code → skipped</li>
-                        <li>Blank code → next AS / JW code generated</li>
+                        <li>Same <strong>Employee Code</strong> in DB → <strong>update</strong> (no new row)</li>
+                        <li>Same code / name / Aadhaar / mobile in Excel → <strong>skip</strong></li>
+                        <li>Same name / Aadhaar / mobile already in DB → <strong>skip</strong></li>
+                        <li>Blank code + name already exists → <strong>skip</strong></li>
+                        <li>Blank code + new name → auto code generated</li>
                         <?php if ($department): ?>
-                            <li>Every row is saved under <strong><?php echo htmlspecialchars($department['department_name']); ?></strong></li>
-                        <?php else: ?>
-                            <li>Invalid department name → error for that row</li>
+                            <li>Every row saved under <strong><?php echo htmlspecialchars($department['department_name']); ?></strong></li>
                         <?php endif; ?>
-                        <li>Other filled form fields (bank, PF, address…) are optional</li>
                     </ul>
                 </div>
             </div>

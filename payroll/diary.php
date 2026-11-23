@@ -55,9 +55,14 @@ require_once __DIR__ . '/../includes/header.php';
         <a href="<?php echo app_url('department.php?id=' . $deptId); ?>" class="back-link">
             <i class="fa-solid fa-arrow-left"></i> Back to Modules
         </a>
-        <a href="<?php echo app_url('payroll/structure_edit.php?department_id=' . $deptId); ?>" class="btn-primary">
-            <i class="fa-solid fa-plus"></i> Add Salary Structure
-        </a>
+        <div class="toolbar-actions" style="display:flex;gap:8px;">
+            <a href="<?php echo app_url('payroll/import.php?department_id=' . $deptId); ?>" class="btn-secondary">
+                <i class="fa-solid fa-file-import"></i> Import Salary
+            </a>
+            <a href="<?php echo app_url('payroll/structure_edit.php?department_id=' . $deptId); ?>" class="btn-primary">
+                <i class="fa-solid fa-plus"></i> Add Salary Structure
+            </a>
+        </div>
     </div>
 
     <div class="form-page-card">

@@ -109,7 +109,7 @@ $openLeaveMenu = in_array((string) $sidebarActive, [
     'leave_request', 'leave_encashment', 'coff_history', 'coff_report', 'dl_report', 'lwp_report', 'leave_balance',
 ], true) || strpos((string) $sidebarActive, 'leave') === 0;
 $openPayrollMenu = in_array((string) $sidebarActive, [
-    'salary_register', 'joining_exit_report', 'dept_cost_summary', 'neft_sheet',
+    'salary_register', 'salary_import', 'joining_exit_report', 'dept_cost_summary', 'neft_sheet',
 ], true) || strpos((string) $sidebarActive, 'payroll') === 0;
 $openCanteen = ($sidebarMode === 'canteen' || strpos((string) $sidebarActive, 'canteen') === 0);
 $openAdminMenu = in_array((string) $sidebarActive, ['roles', 'staff_users', 'settings', 'dept_heads'], true);
@@ -533,6 +533,7 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'En
                 </button>
                 <div class="sidebar-submenu">
                     <a href="<?php echo app_url('payroll/register.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'salary_register' ? 'active' : ''; ?>"><i class="fa-solid fa-table"></i><span>Salary Register</span></a>
+                    <a href="<?php echo app_url('payroll/import.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'salary_import' ? 'active' : ''; ?>"><i class="fa-solid fa-file-import"></i><span>Import Salary</span></a>
                     <a href="<?php echo app_url('payroll/joining_exit.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'joining_exit_report' ? 'active' : ''; ?>"><i class="fa-solid fa-user-plus"></i><span>Joining / Exit</span></a>
                     <a href="<?php echo app_url('payroll/cost_summary.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'dept_cost_summary' ? 'active' : ''; ?>"><i class="fa-solid fa-chart-pie"></i><span>Dept Cost Summary</span></a>
                     <a href="<?php echo app_url('payroll/neft.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'neft_sheet' ? 'active' : ''; ?>"><i class="fa-solid fa-building-columns"></i><span>NEFT Sheet</span></a>

@@ -70,6 +70,7 @@ if ($payType === 'Jobwork') {
         $ctype = trim((string) ($types[$i] ?? 'Earning'));
         $calc = trim((string) ($calcs[$i] ?? 'Fixed'));
         $amount = (float) ($amounts[$i] ?? 0);
+        $amount = (round($amount, 2) == round($amount)) ? round($amount) : round($amount, 2);
         $stmt->bind_param('isiisssd', $employeeId, $lineType, $cid, $slabId, $label, $ctype, $calc, $amount);
         $stmt->execute();
     }

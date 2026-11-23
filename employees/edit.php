@@ -15,7 +15,6 @@ ensureMasterTables();
 
 $deptId = isset($_GET['department_id']) ? (int) $_GET['department_id'] : 0;
 $empId  = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-requireAccess('employees', $empId > 0 ? 'edit' : 'add', $deptId);
 $fromContractor = (($_GET['from'] ?? '') === 'contractor');
 
 function empField($employee, $key, $default = '')
@@ -33,9 +32,11 @@ if ($empId > 0) {
     employeeSyncDecidedSalaryFromHistory($connSync, $empId);
     $connSync->close();
     $employee = getEmployeeById($empId);
-    if ($employee) {
-        $deptId = (int) $employee['department_id'];
+    if (!$employee) {
+        header('Location: ' . app_url('employees/index.php'));
+        exit;
     }
+    $deptId = (int) ($employee['department_id'] ?? 0);
 } elseif ($empId <= 0 && (($_GET['from'] ?? '') === 'recruitment') && !empty($_GET['rec_id'])) {
     require_once __DIR__ . '/../includes/recruitment_helper.php';
     $rec = getRecruitmentApplication((int) $_GET['rec_id']);
@@ -62,8 +63,11 @@ if ($empId > 0) {
     }
 }
 
+requireAccess('employees', $empId > 0 ? 'edit' : 'add', $deptId);
+
 $department = $deptId > 0 ? getDepartmentById($deptId) : null;
-if (!$department) {
+// Only block when adding a new employee without specifying a department or from department page
+if ($empId <= 0 && !$department && !$fromContractor) {
     header('Location: ' . app_url('dashboard.php'));
     exit;
 }
@@ -71,9 +75,9 @@ if (!$department) {
 $pageTitle = $employee ? 'Edit Employee' : 'Add Employee';
 
 $useSidebar = true;
-$sidebarMode = $fromContractor ? 'contractor' : 'department';
+$sidebarMode = $fromContractor ? 'contractor' : ($deptId > 0 ? 'department' : 'employees');
 $sidebarDeptId = $deptId;
-$sidebarActive = $fromContractor ? 'contractor_employees' : 'join_employee';
+$sidebarActive = $fromContractor ? 'contractor_employees' : ($deptId > 0 ? 'join_employee' : 'all_employees');
 $extraCss = ['https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css'];
 $extraJs = [
     'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js',
@@ -155,13 +159,15 @@ $ob = empField($employee, 'overtime_benefits', 'No');
     <div class="page-toolbar flex-between">
         <a href="<?php echo $fromContractor
             ? app_url('contractor/employees/index.php')
-            : app_url('employees/index.php?department_id=' . (int) $deptId); ?>" class="back-link">
+            : ($deptId > 0 ? app_url('employees/index.php?department_id=' . (int) $deptId) : app_url('employees/index.php')); ?>" class="back-link">
             <i class="fa-solid fa-arrow-left"></i>
             <?php echo $fromContractor ? 'Back to Contractor Employee' : 'Back to Employee List'; ?>
         </a>
+        <?php if ($deptId > 0): ?>
         <a href="<?php echo app_url('department.php?id=' . (int) $deptId); ?>" class="btn-secondary">
             <i class="fa-solid fa-puzzle-piece"></i> Module Boxes
         </a>
+        <?php endif; ?>
     </div>
 
     <div class="form-page-card emp-join-card">
@@ -176,7 +182,7 @@ $ob = empField($employee, 'overtime_benefits', 'No');
                     <h1><?php echo $employee ? 'Edit Employee' : 'Add Employee'; ?></h1>
                     <p>
                         Same form for Add &amp; Edit · Hierarchy-wise sections ·
-                        Department: <strong><?php echo htmlspecialchars($department['department_name']); ?></strong>
+                        Department: <strong><?php echo htmlspecialchars($department ? $department['department_name'] : 'Unassigned / None'); ?></strong>
                     </p>
                 </div>
                 <div class="emp-code-header">
@@ -400,7 +406,8 @@ $ob = empField($employee, 'overtime_benefits', 'No');
                 <div class="emp-subhead">Job Description</div>
                 <div class="form-grid form-grid-3">
                     <div class="form-group"><label>21. Department</label>
-                        <select name="department_id" id="empDepartmentId" class="form-control" required>
+                        <select name="department_id" id="empDepartmentId" class="form-control">
+                            <option value="0" data-on-field="0" <?php echo ($deptId <= 0) ? 'selected' : ''; ?>>— None / Unassigned —</option>
                             <?php foreach ($departments as $dept): ?>
                                 <option value="<?php echo (int) $dept['id']; ?>"
                                         data-on-field="<?php echo isSalesOnFieldDepartment($dept) ? '1' : '0'; ?>"

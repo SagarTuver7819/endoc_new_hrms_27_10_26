@@ -120,6 +120,9 @@ require_once __DIR__ . '/../includes/header.php';
                     <i class="fa-solid fa-building-columns"></i> NEFT Sheet
                 </a>
             <?php endif; ?>
+            <a class="btn-secondary" href="<?php echo app_url('payroll/import.php' . ($deptId > 0 ? '?department_id=' . $deptId : '')); ?>">
+                <i class="fa-solid fa-file-import"></i> Import Salary
+            </a>
             <a class="btn-secondary" href="<?php echo app_url('payroll/register_excel.php?' . $excelQs); ?>">
                 <i class="fa-solid fa-file-excel"></i> Excel
             </a>

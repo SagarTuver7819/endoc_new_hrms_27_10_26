@@ -106,6 +106,13 @@ $excelUrl = app_url('employees/export_excel.php?view=' . $view . ($deptId > 0 ? 
                 <?php endif; ?>
             </a>
             <?php endif; ?>
+            <?php if (!$isExit && (isAdmin() || isHR() || canAccess('payroll', 'edit'))): ?>
+            <a href="<?php echo htmlspecialchars(app_url('payroll/import.php') . ($deptId > 0 ? ('?department_id=' . $deptId) : '')); ?>"
+               class="btn-secondary"
+               title="Import Salary Details &amp; Monthly Register">
+                <i class="fa-solid fa-file-invoice-dollar"></i> Import Salary
+            </a>
+            <?php endif; ?>
             <?php if ($isAllReport && function_exists('isAdmin') && isAdmin() && !$isExit): ?>
                 <a href="<?php echo app_url('roles/bulk_employee_logins.php'); ?>" class="btn-secondary">
                     <i class="fa-solid fa-key"></i> Employee Logins

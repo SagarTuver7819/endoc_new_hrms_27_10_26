@@ -43,9 +43,9 @@ foreach ($saved as $row) {
 
 $pageTitle = 'Salary Details';
 $useSidebar = true;
-$sidebarMode = 'department';
+$sidebarMode = $deptId > 0 ? 'department' : 'employees';
 $sidebarDeptId = $deptId;
-$sidebarActive = 'join_employee';
+$sidebarActive = $deptId > 0 ? 'join_employee' : 'all_employees';
 
 require_once __DIR__ . '/../includes/header.php';
 
@@ -57,9 +57,24 @@ $basic = (float) ($emp['decided_salary'] ?? 0);
         <a href="<?php echo app_url('employees/view.php?id=' . $id); ?>" class="back-link">
             <i class="fa-solid fa-arrow-left"></i> Back to Profile
         </a>
+        <div class="toolbar-actions">
+            <a href="<?php echo app_url('payroll/import.php'); ?>" class="btn-primary" style="background:#0f766e;color:#fff;">
+                <i class="fa-solid fa-file-excel"></i> Import Salary Details (Excel)
+            </a>
+        </div>
     </div>
 
     <div class="form-page-card">
+        <div class="info-alert" style="background:#f0fdfa;border:1px solid #99f6e4;color:#0f766e;padding:12px 16px;border-radius:8px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <i class="fa-solid fa-circle-info" style="font-size:18px;"></i>
+                <span>Tame Excel sheet mathi badha employees na salary components (Basic, HRA, PF, PT, etc.) ek saathe bulk import kari sako cho.</span>
+            </div>
+            <a href="<?php echo app_url('payroll/import.php'); ?>" class="btn-secondary" style="white-space:nowrap;padding:6px 14px;font-size:12px;text-decoration:none;">
+                <i class="fa-solid fa-upload"></i> Go to Excel Import
+            </a>
+        </div>
+
         <div class="form-page-header">
             <div>
                 <h1>Salary Details</h1>
@@ -144,7 +159,7 @@ $basic = (float) ($emp['decided_salary'] ?? 0);
                                         <input type="hidden" name="comp_label[]" value="<?php echo htmlspecialchars($c['component_name']); ?>">
                                         <input type="hidden" name="comp_type[]" value="<?php echo htmlspecialchars($c['component_type']); ?>">
                                         <input type="hidden" name="comp_calc[]" value="<?php echo htmlspecialchars($c['calculation']); ?>">
-                                        <input type="number" step="0.01" name="comp_amount[]" class="form-control" value="<?php echo htmlspecialchars((string) $amt); ?>">
+                                        <input type="number" step="any" name="comp_amount[]" class="form-control" value="<?php echo htmlspecialchars((string) (round($amt, 2) == round($amt) ? (int) round($amt) : round($amt, 2))); ?>">
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

@@ -12,6 +12,9 @@ requireLogin();
 require_once __DIR__ . '/../includes/permission_helper.php';
 requireAccess('attendance', 'add');
 ensureAttendanceTables();
+@set_time_limit(300);
+@ini_set('max_execution_time', '300');
+@ini_set('memory_limit', '512M');
 
 $pageTitle = 'Attendance Import';
 $useSidebar = true;
@@ -71,19 +74,78 @@ require_once __DIR__ . '/../includes/header.php';
         <?php endif; ?>
 
         <?php if ($result): ?>
-            <div class="alert alert-success" style="margin-bottom:14px;">
-                Import complete. Success: <strong><?php echo (int) $result['success']; ?></strong>,
-                Skipped: <strong><?php echo (int) $result['skipped']; ?></strong>,
-                Errors: <strong><?php echo (int) $result['errors']; ?></strong>,
-                Employees synced to diary: <strong><?php echo (int) $result['employees_synced']; ?></strong>
-                · Batch #<?php echo (int) $result['batch_id']; ?>
+            <?php
+            $okCount = (int) ($result['success'] ?? 0);
+            $errCount = (int) ($result['errors'] ?? 0);
+            $missing = $result['missing_employees'] ?? [];
+            $otherErr = $result['other_errors'] ?? [];
+            $alertClass = $errCount > 0 && $okCount > 0 ? 'alert-warning' : ($errCount > 0 ? 'alert-danger' : 'alert-success');
+            ?>
+            <div class="alert <?php echo $alertClass; ?>" style="margin-bottom:14px;">
+                <strong>Import complete</strong> · Batch #<?php echo (int) $result['batch_id']; ?><br>
+                Success punches: <strong><?php echo $okCount; ?></strong> ·
+                Skipped duplicates: <strong><?php echo (int) $result['skipped']; ?></strong> ·
+                Errors: <strong><?php echo $errCount; ?></strong> ·
+                Employees synced: <strong><?php echo (int) $result['employees_synced']; ?></strong>
             </div>
-            <?php if (!empty($result['error_log'])): ?>
-                <div class="form-section">
-                    <h3>Errors (first rows)</h3>
-                    <ul>
-                        <?php foreach (array_slice($result['error_log'], 0, 30) as $line): ?>
-                            <li><?php echo htmlspecialchars($line); ?></li>
+
+            <?php if (!empty($missing)): ?>
+                <div class="form-section" style="margin-bottom:16px;">
+                    <h3 style="color:#8B3A36;">
+                        <i class="fa-solid fa-user-xmark"></i>
+                        Employee not found (<?php echo count($missing); ?>)
+                    </h3>
+                    <p style="margin:0 0 10px;color:#64748b;">
+                        Niche na machine ID Employees master ma nathi. Pehla employee add karo
+                        (<code>employee_code</code> = machine ID), pachi feri import karo.
+                    </p>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Machine ID</th>
+                                    <th>Name (report)</th>
+                                    <th>Punches skipped</th>
+                                    <th>Sample dates</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($missing as $i => $m): ?>
+                                    <tr>
+                                        <td><?php echo (int) $i + 1; ?></td>
+                                        <td><strong><?php echo htmlspecialchars((string) ($m['employee_code'] !== '' ? $m['employee_code'] : '—')); ?></strong></td>
+                                        <td><?php echo htmlspecialchars((string) ($m['employee_name'] !== '' ? $m['employee_name'] : '—')); ?></td>
+                                        <td><?php echo (int) ($m['punches'] ?? 0); ?></td>
+                                        <td><?php echo htmlspecialchars(implode(', ', $m['sample_dates'] ?? [])); ?></td>
+                                        <td>
+                                            <a class="btn-secondary" style="padding:4px 10px;font-size:12px;"
+                                               href="<?php echo app_url('employees/edit.php'); ?>">
+                                                Add Employee
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!empty($otherErr)): ?>
+                <div class="form-section" style="margin-bottom:16px;">
+                    <h3><i class="fa-solid fa-triangle-exclamation"></i> Other errors (<?php echo count($otherErr); ?>)</h3>
+                    <ul style="margin:0;padding-left:18px;line-height:1.7;">
+                        <?php foreach (array_slice($otherErr, 0, 40) as $oe): ?>
+                            <li>
+                                <strong>Row <?php echo (int) $oe['row']; ?>:</strong>
+                                <?php echo htmlspecialchars((string) $oe['reason']); ?>
+                                — <?php echo htmlspecialchars((string) $oe['detail']); ?>
+                                <?php if (!empty($oe['employee_code']) || !empty($oe['employee_name'])): ?>
+                                    (<?php echo htmlspecialchars(trim(($oe['employee_code'] ?? '') . ' ' . ($oe['employee_name'] ?? ''))); ?>)
+                                <?php endif; ?>
+                            </li>
                         <?php endforeach; ?>
                     </ul>
                 </div>
@@ -93,11 +155,11 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="form-section">
             <h3><i class="fa-solid fa-circle-info"></i> How to Import</h3>
             <ol style="line-height:1.7;margin:0;padding-left:18px;">
-                <li>Download the sample Excel template</li>
-                <li>Fill minimum columns: employee identifier, attendance_date, punch_in_time</li>
-                <li>Match using <code>biometric_user_id</code>, <code>employee_code</code>, or <code>employee_name</code></li>
+                <li><strong>Biometric Attendance Card Report</strong> (.xls) also supported — e.g. <code>AttendanceCardReport.xls</code></li>
+                <li>Or download sample template (flat punch columns)</li>
+                <li>Match employees by machine <code>ID</code> = <code>employee_code</code> / <code>biometric_user_id</code></li>
                 <li>Upload .xlsx / .xls / .csv and submit</li>
-                <li>System rebuilds day status and updates Salary Diary (Present / Week Off) for salary</li>
+                <li>System rebuilds day status and updates Salary Diary (Present / Week Off)</li>
             </ol>
         </div>
 

@@ -25,7 +25,7 @@ function ensureEmployeesTable($conn = null)
     $conn->query("CREATE TABLE IF NOT EXISTS employees (
         id INT AUTO_INCREMENT PRIMARY KEY,
         employee_code VARCHAR(30) NOT NULL UNIQUE,
-        department_id INT NOT NULL,
+        department_id INT DEFAULT NULL,
         employee_name VARCHAR(150) NOT NULL,
         father_husband_name VARCHAR(150) DEFAULT NULL,
         permanent_address TEXT,
@@ -88,6 +88,8 @@ function ensureEmployeesTable($conn = null)
     ensureEmployeeColumn($conn, 'appointment_letter_no', "appointment_letter_no VARCHAR(40) DEFAULT NULL AFTER date_of_joining");
     ensureEmployeeColumn($conn, 'appointment_letter_date', "appointment_letter_date DATE DEFAULT NULL AFTER appointment_letter_no");
     ensureEmployeeColumn($conn, 'appointment_generated_at', "appointment_generated_at DATETIME DEFAULT NULL AFTER appointment_letter_date");
+    ensureEmployeeColumn($conn, 'direct_indirect_rd', "direct_indirect_rd VARCHAR(40) DEFAULT NULL AFTER designation");
+    ensureEmployeeColumn($conn, 'staff_or_worker', "staff_or_worker VARCHAR(40) DEFAULT NULL AFTER direct_indirect_rd");
 
     // Auto-sync: Exit date reached (today or past) → Deactive. Future exit date keeps Active.
     $conn->query(
@@ -1671,47 +1673,60 @@ function applyEmployeeDocumentUpload($fileKey, $employeeId, $kind, $currentPath)
  */
 function employeeImportHeaders($omitDepartment = false)
 {
+    // Simple sheet format (also used by payroll-style lists)
     $headers = [
-        'employee_code',
-        'biometric_user_id',
-        'pay_type',
-        'employee_name',
-        'father_husband_name',
-        'department',
-        'designation',
-        'date_of_birth',
-        'date_of_joining',
-        'date_of_exit',
-        'mobile_number',
-        'emergency_mobile',
-        'emergency_contact_name',
-        'emergency_contact_relation',
-        'aadhar_number',
-        'pan_number',
-        'permanent_address',
-        'present_address',
-        'shift_type',
-        'shift_time',
-        'pf_deduction',
-        'uan_number',
-        'bank_name',
-        'bank_account_number',
-        'ifsc_code',
-        'bank_branch_address',
-        'decided_salary',
-        'reporting_head',
-        'week_off_day',
-        'week_off_benefits',
-        'holiday_benefits',
-        'overtime_benefits',
-        'extra_note',
+        'SR No',
+        'Employee Code',
+        'NAME',
     ];
-    if ($omitDepartment) {
-        $headers = array_values(array_filter($headers, static function ($h) {
-            return $h !== 'department';
-        }));
+    if (!$omitDepartment) {
+        $headers[] = 'Department';
     }
+    $headers[] = 'Direct/Indirect/R&D';
+    $headers[] = 'Staff or Worker';
     return $headers;
+}
+
+/**
+ * Normalize Direct / Indirect / R&D import value.
+ */
+function employeeNormalizeDirectIndirect($value)
+{
+    $v = strtolower(trim((string) $value));
+    $v = preg_replace('/\s+/', '', $v);
+    if ($v === '' || $v === '-') {
+        return '';
+    }
+    if (in_array($v, ['direct', 'd', 'dir'], true)) {
+        return 'Direct';
+    }
+    if (in_array($v, ['indirect', 'ind', 'indir'], true)) {
+        return 'Indirect';
+    }
+    if (in_array($v, ['rnd', 'r&d', 'rd', 'research', 'research&development'], true)) {
+        return 'R&D';
+    }
+    // Keep original trimmed casing for custom values
+    return trim((string) $value);
+}
+
+/**
+ * Normalize Staff / Worker import value.
+ */
+function employeeNormalizeStaffOrWorker($value)
+{
+    $raw = trim((string) $value);
+    $v = strtolower($raw);
+    if ($v === '' || $v === '-') {
+        return '';
+    }
+    if ($v === 'staff' || strpos($v, 'office') !== false) {
+        return 'Office Staff';
+    }
+    if (strpos($v, 'worker') !== false || in_array($v, ['workman', 'labour', 'labor'], true)) {
+        return 'Worker';
+    }
+    return $raw;
 }
 
 function employeeImportYesNo($value, $default = 'No')
@@ -1747,13 +1762,67 @@ function employeeImportFindDepartmentId($conn, $departmentName, $fallbackDeptId 
 {
     $fallbackDeptId = (int) $fallbackDeptId;
     $name = trim((string) $departmentName);
-    if ($name !== '') {
+    if ($name === '') {
+        return $fallbackDeptId > 0 ? $fallbackDeptId : 0;
+    }
+
+    $stmt = $conn->prepare(
+        "SELECT id FROM departments
+         WHERE status = 1 AND UPPER(TRIM(department_name)) = UPPER(TRIM(?))
+         LIMIT 1"
+    );
+    $stmt->bind_param('s', $name);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if ($row) {
+        return (int) $row['id'];
+    }
+
+    // Common short names from Excel sheets
+    $aliases = [
+        'rnd' => 'LABORATORY / R&D',
+        'r&d' => 'LABORATORY / R&D',
+        'rd' => 'LABORATORY / R&D',
+        'admin' => 'ADMINISTRATION',
+        'administration' => 'ADMINISTRATION',
+        'production' => 'PRODUCTION',
+        'engineering' => 'MECHANICAL MAINTENANCE',
+        'electrical' => 'ELECTRICAL',
+        'qa' => 'QA AND QC',
+        'qc' => 'QA AND QC',
+        'hr' => 'HUMAN RESOURCE MANAGEMENT',
+        'store' => 'STORE',
+        'stores' => 'STORE',
+        'accounts' => 'ACCOUNTS AND FINANCE',
+        'finance' => 'ACCOUNTS AND FINANCE',
+        'purchase' => 'PURCHASE',
+        'sales' => 'SALES & MARKETING - DOMESTIC',
+        'warehouse' => 'WAREHOUSE',
+        'dispatch' => 'DISPATCH & LOGISTICS',
+        'canteen' => 'CANTEEN',
+        'security' => 'SECURITY',
+        'housekeeping' => 'HOUSEKEEPING',
+        'ehs' => 'EHS (ENVIRONMENT, HEALTH & SAFETY)',
+        'utility' => 'UTILITY',
+        'formulation' => 'FORMULATION',
+        'packing' => 'FILLING & PACKAGING',
+        'packaging' => 'FILLING & PACKAGING',
+        'process' => 'PROCESS / MANUFACTURING',
+        'it' => 'IT AND NETWORKING',
+        'export' => 'EXPORT & INTERNATIONAL MARKETING',
+        'compliance' => 'COMPLIANCE & CERTIFICATION',
+        'planning' => 'PRODUCTION PLANNING',
+    ];
+    $key = strtolower(preg_replace('/[^a-z0-9]+/i', '', $name));
+    if ($key !== '' && isset($aliases[$key])) {
+        $canon = $aliases[$key];
         $stmt = $conn->prepare(
             "SELECT id FROM departments
              WHERE status = 1 AND UPPER(TRIM(department_name)) = UPPER(TRIM(?))
              LIMIT 1"
         );
-        $stmt->bind_param('s', $name);
+        $stmt->bind_param('s', $canon);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
@@ -1761,6 +1830,7 @@ function employeeImportFindDepartmentId($conn, $departmentName, $fallbackDeptId 
             return (int) $row['id'];
         }
     }
+
     return $fallbackDeptId > 0 ? $fallbackDeptId : 0;
 }
 
@@ -1819,8 +1889,94 @@ function employeeEnsureDesignationMaster($conn, $postName)
 }
 
 /**
+ * Normalize Aadhaar digits for duplicate compare.
+ */
+function employeeImportNormAadhaar($value)
+{
+    return preg_replace('/\D+/', '', (string) $value);
+}
+
+/**
+ * Normalize mobile digits for duplicate compare (last 10).
+ */
+function employeeImportNormMobile($value)
+{
+    $d = preg_replace('/\D+/', '', (string) $value);
+    if ($d === '') {
+        return '';
+    }
+    if (strlen($d) > 10) {
+        $d = substr($d, -10);
+    }
+    return $d;
+}
+
+/**
+ * Find existing employee by aadhaar / mobile / exact name.
+ * @return array{id:int,employee_code:string,employee_name:string,match:string}|null
+ */
+function employeeImportFindExistingDup($conn, $name, $aadhar = '', $mobile = '', $excludeId = 0)
+{
+    $excludeId = (int) $excludeId;
+    $aadharN = employeeImportNormAadhaar($aadhar);
+    $mobileN = employeeImportNormMobile($mobile);
+    $name = trim((string) $name);
+
+    if ($aadharN !== '' && strlen($aadharN) >= 8) {
+        $sql = "SELECT id, employee_code, employee_name FROM employees
+                WHERE REPLACE(REPLACE(REPLACE(IFNULL(aadhar_number,''),' ',''),'-',''),'/','') = ?
+                  AND (? = 0 OR id <> ?)
+                LIMIT 1";
+        $st = $conn->prepare($sql);
+        $st->bind_param('sii', $aadharN, $excludeId, $excludeId);
+        $st->execute();
+        $row = $st->get_result()->fetch_assoc();
+        $st->close();
+        if ($row) {
+            $row['match'] = 'Aadhaar';
+            return $row;
+        }
+    }
+
+    if ($mobileN !== '' && strlen($mobileN) >= 10) {
+        $sql = "SELECT id, employee_code, employee_name FROM employees
+                WHERE RIGHT(REPLACE(REPLACE(IFNULL(mobile_number,''),' ',''),'-',''), 10) = ?
+                  AND (? = 0 OR id <> ?)
+                LIMIT 1";
+        $st = $conn->prepare($sql);
+        $st->bind_param('sii', $mobileN, $excludeId, $excludeId);
+        $st->execute();
+        $row = $st->get_result()->fetch_assoc();
+        $st->close();
+        if ($row) {
+            $row['match'] = 'Mobile';
+            return $row;
+        }
+    }
+
+    if ($name !== '') {
+        $sql = "SELECT id, employee_code, employee_name FROM employees
+                WHERE LOWER(TRIM(employee_name)) = LOWER(TRIM(?))
+                  AND (? = 0 OR id <> ?)
+                LIMIT 1";
+        $st = $conn->prepare($sql);
+        $st->bind_param('sii', $name, $excludeId, $excludeId);
+        $st->execute();
+        $row = $st->get_result()->fetch_assoc();
+        $st->close();
+        if ($row) {
+            $row['match'] = 'Name';
+            return $row;
+        }
+    }
+
+    return null;
+}
+
+/**
  * Import employees from CSV / XLS / XLSX.
- * @return array{success:int,skipped:int,errors:int,error_log:string[]}
+ * Duplicate rules: existing code → update; same code/aadhaar/mobile/name → skip (no new row).
+ * @return array{success:int,updated:int,skipped:int,errors:int,error_log:array}
  */
 function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0, $createdBy = 0)
 {
@@ -1843,27 +1999,30 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
 
     $success = 0;
     $skipped = 0;
+    $updated = 0;
     $errors = 0;
     $errorLog = [];
     $lineNo = 1; // header = 1, first data = 2
+    $seenCodes = [];   // within-file: employee_code => row
+    $seenNames = [];   // within-file: lower name => row
+    $seenAadhaar = []; // within-file
+    $seenMobile = [];  // within-file
 
-    // If import opened without department lock, fall back to ADMINISTRATION when column blank
+    // Department: keep NULL by default if not importing from a locked department
     $fallbackDeptId = (int) $defaultDeptId;
-    if ($fallbackDeptId <= 0) {
-        $fallbackDeptId = (int) employeeImportFindDepartmentId($conn, 'ADMINISTRATION', 0);
-    }
 
     $insertSql = "INSERT INTO employees (
         employee_code, biometric_user_id, pay_type, department_id, sub_department_id, employee_name, father_husband_name,
         permanent_address, present_address, mobile_number, emergency_mobile,
-        aadhar_number, pan_number, date_of_birth, designation, date_of_joining, date_of_exit,
+        aadhar_number, pan_number, date_of_birth, designation, direct_indirect_rd, staff_or_worker,
+        date_of_joining, date_of_exit,
         shift_type, shift_time, pf_deduction, uan_number,
         bank_name, bank_account_number, ifsc_code, bank_branch_address,
         decided_salary, reporting_head, extra_note, week_off_day,
         week_off_benefits, holiday_benefits, overtime_benefits, main_contractor_id, created_by, status
     ) VALUES (
-        ?,?,?,?,?,?,?,?,?,?,?,?,?,
-        NULLIF(?,''),?,NULLIF(?,''),NULLIF(?,''),
+        ?,?,?, NULLIF(?, 0), NULLIF(?, 0), ?,?,?,?,?,?,?,?,
+        NULLIF(?,''),?,?,?,NULLIF(?,''),NULLIF(?,''),
         ?,?,?,?,?,?,?,?,
         NULLIF(?,''),?,?,?,?,?,?,?,
         ?,1
@@ -1908,43 +2067,138 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
         }
 
         $deptName = employeeImportGet($row, ['department', 'department_name']);
-        // Department Join Employee import → always lock to that department
+        // Department Join Employee import → lock to that department if specified, else look up, else NULL (0)
         if ($defaultDeptId > 0) {
             $departmentId = (int) $defaultDeptId;
+        } elseif ($deptName !== '') {
+            $foundDept = employeeImportFindDepartmentId($conn, $deptName, 0);
+            $departmentId = ($foundDept > 0) ? $foundDept : 0;
         } else {
-            $departmentId = employeeImportFindDepartmentId($conn, $deptName, $fallbackDeptId);
-        }
-        if ($departmentId <= 0) {
-            $errors++;
-            $errorLog[] = [
-                'row' => $lineNo,
-                'type' => 'error',
-                'code' => employeeImportGet($row, ['employee_code', 'emp_code', 'code']) ?: '—',
-                'name' => $name,
-                'problem' => 'Department "' . ($deptName ?: 'Blank') . '" is invalid or not found in Department Masters.',
-                'solution' => 'Check the department name in Excel to match Masters, or add this department in Department Masters.',
-            ];
-            continue;
+            // Keep Department NULL by default
+            $departmentId = 0;
         }
 
         $payType = normalizePayType(employeeImportGet($row, ['pay_type', 'type', 'punch_type']) ?: 'Salary');
-        $empCode = strtoupper(employeeImportGet($row, ['employee_code', 'emp_code', 'code']));
+        $empCodeRaw = strtoupper(employeeImportGet($row, ['employee_code', 'emp_code', 'code']));
+        $empCode = $empCodeRaw;
+
+        $nameKey = strtolower(preg_replace('/\s+/', ' ', trim($name)));
+
+        // Blank code + same name already in DB / file → do not create another employee
         if ($empCode === '') {
+            if (isset($seenNames[$nameKey])) {
+                $skipped++;
+                $errorLog[] = [
+                    'row' => $lineNo,
+                    'type' => 'skipped',
+                    'code' => '—',
+                    'name' => $name,
+                    'problem' => "Name '{$name}' repeated in this Excel (first on row {$seenNames[$nameKey]}). Duplicate not added.",
+                    'solution' => 'Keep only one row per employee name when code is blank.',
+                ];
+                continue;
+            }
+            $nameExists = employeeImportFindExistingDup($conn, $name, '', '', 0);
+            if ($nameExists && ($nameExists['match'] ?? '') === 'Name') {
+                $skipped++;
+                $errorLog[] = [
+                    'row' => $lineNo,
+                    'type' => 'skipped',
+                    'code' => (string) ($nameExists['employee_code'] ?? ''),
+                    'name' => $name,
+                    'problem' => "Name '{$name}' already exists (Code: {$nameExists['employee_code']}). Blank-code duplicate not added.",
+                    'solution' => "Put existing Employee Code in Excel Row {$lineNo} to update, do not leave code blank.",
+                ];
+                continue;
+            }
             $empCode = generateEmployeeCode($conn, $payType);
-        } elseif (!isEmployeeCodeUnique($conn, $empCode, 0)) {
+        } elseif (isset($seenCodes[$empCode])) {
             $skipped++;
-            $existing = findEmployeeByCode($conn, $empCode, 0);
-            $existingName = $existing ? $existing['employee_name'] : 'an existing employee';
             $errorLog[] = [
                 'row' => $lineNo,
                 'type' => 'skipped',
                 'code' => $empCode,
                 'name' => $name,
-                'problem' => "Employee Code '{$empCode}' already exists in HRMS (assigned to '{$existingName}'). Duplicate codes are skipped.",
-                'solution' => "Change this code in Excel Row {$lineNo} to a unique code, or leave code blank to auto-generate.",
+                'problem' => "Employee Code '{$empCode}' repeated again in this Excel file (first seen on row {$seenCodes[$empCode]}).",
+                'solution' => 'Keep only one row per Employee Code in the sheet.',
             ];
             continue;
+        } elseif (!isEmployeeCodeUnique($conn, $empCode, 0)) {
+            // Existing code → update department / Direct-Indirect / Staff-Worker (no duplicate insert)
+            $existing = findEmployeeByCode($conn, $empCode, 0);
+            $directIndirectUp = employeeNormalizeDirectIndirect(
+                employeeImportGet($row, ['direct_indirect_rd', 'direct_indirect', 'dir_indir_rd'])
+            );
+            if ($directIndirectUp === '') {
+                $directIndirectUp = trim((string) employeeImportGet($row, ['direct_indirect_rd', 'direct_indirect']));
+            }
+            $staffOrWorkerUp = employeeNormalizeStaffOrWorker(
+                employeeImportGet($row, ['staff_or_worker', 'staff_worker', 'category'])
+            );
+            if ($staffOrWorkerUp === '') {
+                $staffRawUp = trim((string) employeeImportGet($row, ['staff_or_worker', 'staff_worker', 'category']));
+                if ($staffRawUp !== '') {
+                    $staffOrWorkerUp = $staffRawUp;
+                }
+            }
+            $designationUp = employeeImportGet($row, ['designation', 'post', 'position', 'employee_type', 'emp_type']);
+            if ($designationUp === '' && $staffOrWorkerUp !== '') {
+                $designationUp = $staffOrWorkerUp;
+            }
+            if ($designationUp !== '') {
+                $designationUp = employeeEnsureDesignationMaster($conn, $designationUp);
+            }
+            $up = $conn->prepare(
+                "UPDATE employees SET
+                    employee_name = IF(? = '', employee_name, ?),
+                    department_id = IF(? = 0, department_id, ?),
+                    designation = IF(? = '', designation, ?),
+                    direct_indirect_rd = IF(? = '', direct_indirect_rd, ?),
+                    staff_or_worker = IF(? = '', staff_or_worker, ?)
+                 WHERE id = ?"
+            );
+            $exId = (int) ($existing['id'] ?? 0);
+            $up->bind_param(
+                'ssiissssssi',
+                $name,
+                $name,
+                $departmentId,
+                $departmentId,
+                $designationUp,
+                $designationUp,
+                $directIndirectUp,
+                $directIndirectUp,
+                $staffOrWorkerUp,
+                $staffOrWorkerUp,
+                $exId
+            );
+            if ($up->execute()) {
+                $updated++;
+                $seenCodes[$empCode] = $lineNo;
+                $seenNames[$nameKey] = $lineNo;
+                $aadUp = employeeImportNormAadhaar(employeeImportGet($row, ['aadhar_number', 'aadhar']));
+                $mobUp = employeeImportNormMobile(employeeImportGet($row, ['mobile_number', 'mobile', 'mobail_num', 'mobail_number', 'phone', 'contact']));
+                if ($aadUp !== '') {
+                    $seenAadhaar[$aadUp] = $lineNo;
+                }
+                if ($mobUp !== '') {
+                    $seenMobile[$mobUp] = $lineNo;
+                }
+            } else {
+                $errors++;
+                $errorLog[] = [
+                    'row' => $lineNo,
+                    'type' => 'error',
+                    'code' => $empCode,
+                    'name' => $name,
+                    'problem' => "Could not update existing employee '{$empCode}': " . $up->error,
+                    'solution' => "Check Excel Row {$lineNo} values.",
+                ];
+            }
+            $up->close();
+            continue;
         }
+        $seenCodes[$empCode] = $lineNo;
         if (!preg_match('/^[A-Z0-9][A-Z0-9\-_\/]{0,29}$/i', $empCode)) {
             $errors++;
             $errorLog[] = [
@@ -2005,7 +2259,17 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
                 $father = $candidateFather;
             }
         }
+        $directIndirect = employeeNormalizeDirectIndirect(
+            employeeImportGet($row, ['direct_indirect_rd', 'direct_indirect', 'dir_indir_rd'])
+        );
+        $staffOrWorker = employeeNormalizeStaffOrWorker(
+            employeeImportGet($row, ['staff_or_worker', 'staff_worker', 'category'])
+        );
         $designation = employeeImportGet($row, ['designation', 'post', 'position', 'employee_type', 'emp_type']);
+        // If Post/Designation blank, use Staff or Worker as designation
+        if ($designation === '' && $staffOrWorker !== '') {
+            $designation = $staffOrWorker;
+        }
         if ($designation !== '') {
             $designation = employeeEnsureDesignationMaster($conn, $designation);
         }
@@ -2034,8 +2298,74 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
         $mainContractorId = 0;
         $createdByInt = (int) $createdBy;
 
+        // Full duplicate guard before INSERT (DB + within this Excel)
+        $aadharKey = employeeImportNormAadhaar($aadhar);
+        $mobileKey = employeeImportNormMobile($mobile);
+
+        if ($aadharKey !== '' && isset($seenAadhaar[$aadharKey])) {
+            $skipped++;
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'skipped',
+                'code' => $empCode,
+                'name' => $name,
+                'problem' => "Aadhaar repeated in this Excel (first on row {$seenAadhaar[$aadharKey]}). Duplicate not added.",
+                'solution' => 'Remove duplicate Aadhaar row from the sheet.',
+            ];
+            continue;
+        }
+        if ($mobileKey !== '' && isset($seenMobile[$mobileKey])) {
+            $skipped++;
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'skipped',
+                'code' => $empCode,
+                'name' => $name,
+                'problem' => "Mobile repeated in this Excel (first on row {$seenMobile[$mobileKey]}). Duplicate not added.",
+                'solution' => 'Remove duplicate mobile row from the sheet.',
+            ];
+            continue;
+        }
+        if (isset($seenNames[$nameKey]) && $empCodeRaw === '') {
+            $skipped++;
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'skipped',
+                'code' => $empCode,
+                'name' => $name,
+                'problem' => "Name '{$name}' already processed in this Excel (row {$seenNames[$nameKey]}). Duplicate not added.",
+                'solution' => 'Keep one row per name.',
+            ];
+            continue;
+        }
+
+        $dup = employeeImportFindExistingDup($conn, $name, $aadhar, $mobile, 0);
+        if ($dup) {
+            $match = (string) ($dup['match'] ?? 'Record');
+            $dupCode = (string) ($dup['employee_code'] ?? '');
+            // Same person already in DB — do not insert another row
+            $skipped++;
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'skipped',
+                'code' => $empCode,
+                'name' => $name,
+                'problem' => "Duplicate by {$match}: already in HRMS as '{$dup['employee_name']}' (Code: {$dupCode}). Not added again.",
+                'solution' => "Use Employee Code {$dupCode} in Excel to update that record, or remove this row.",
+            ];
+            continue;
+        }
+
+        $seenNames[$nameKey] = $lineNo;
+        if ($aadharKey !== '') {
+            $seenAadhaar[$aadharKey] = $lineNo;
+        }
+        if ($mobileKey !== '') {
+            $seenMobile[$mobileKey] = $lineNo;
+        }
+
         $stmt->bind_param(
-            'sssiisssssssssssssssssssssssssssii',
+            'sssiisssssssssssssssssssssssssssssii',
             $empCode,
             $biometricId,
             $payType,
@@ -2051,6 +2381,8 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
             $pan,
             $dob,
             $designation,
+            $directIndirect,
+            $staffOrWorker,
             $doj,
             $doe,
             $shiftType,
@@ -2126,6 +2458,7 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
 
     return [
         'success' => $success,
+        'updated' => $updated,
         'skipped' => $skipped,
         'errors' => $errors,
         'error_log' => $errorLog,

@@ -271,8 +271,9 @@ $sr = $start + 1;
 while ($row = $result->fetch_assoc()) {
     $id = (int) $row['id'];
     $viewUrl = app_url('employees/view.php?id=' . $id . ($isExit ? '&from=exit' : ($isAll ? '&from=all' : '')));
-    $editUrl = app_url('employees/edit.php?id=' . $id . '&department_id=' . (int) $row['department_id']);
-    $delUrl  = app_url('employees/delete.php?id=' . $id . '&department_id=' . (int) $row['department_id'] . ($isAll ? '&all=1' : ''));
+    $deptParam = ((int) ($row['department_id'] ?? 0) > 0) ? ('&department_id=' . (int) $row['department_id']) : '';
+    $editUrl = app_url('employees/edit.php?id=' . $id . $deptParam);
+    $delUrl  = app_url('employees/delete.php?id=' . $id . $deptParam . ($isAll ? '&all=1' : ''));
     $pdfEn   = app_url('employees/pdf.php?id=' . $id . '&lang=en');
     $pdfHi   = app_url('employees/pdf.php?id=' . $id . '&lang=hi');
     $salaryUrl = app_url('employees/salary.php?id=' . $id);

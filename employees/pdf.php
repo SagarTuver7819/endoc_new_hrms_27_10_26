@@ -311,7 +311,7 @@ if ($isHi && $genderDisp !== '') {
 <body class="af-body<?php echo $isHi ? ' af-hi' : ''; ?>">
 
 <div class="pdf-toolbar no-print">
-    <a href="<?php echo app_url('employees/index.php?department_id=' . (int) $emp['department_id']); ?>" class="tb-btn">← <?php echo e($L['back']); ?></a>
+    <a href="<?php echo app_url('employees/index.php' . ($deptId > 0 ? '?department_id=' . $deptId : '')); ?>" class="tb-btn">← <?php echo e($L['back']); ?></a>
     <div class="tb-right">
         <a href="<?php echo app_url('employees/pdf.php?id=' . (int) $emp['id'] . '&lang=en'); ?>" class="tb-btn <?php echo !$isHi ? 'active' : ''; ?>">English</a>
         <a href="<?php echo app_url('employees/pdf.php?id=' . (int) $emp['id'] . '&lang=hi'); ?>" class="tb-btn <?php echo $isHi ? 'active' : ''; ?>">हिंदी</a>

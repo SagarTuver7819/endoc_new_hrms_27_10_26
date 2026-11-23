@@ -162,8 +162,76 @@ function attendanceNormalizeHeader($h)
         'shift_name' => 'shift_name',
         'remarks' => 'remarks',
         'remark' => 'remarks',
+        'sr_no' => 'sr_no',
+        'srno' => 'sr_no',
+        'sr' => 'sr_no',
+        'direct_indirect_rd' => 'direct_indirect_rd',
+        'staff_or_worker' => 'staff_or_worker',
+        'actual_salary' => 'actual_salary',
+        'salary' => 'actual_salary',
+        'basic_salary' => 'actual_salary',
+        'working_day' => 'working_day',
+        'working_days' => 'working_day',
+        'work_day' => 'working_day',
+        'work_days' => 'working_day',
+        'per_day' => 'per_day',
+        'total_salary' => 'total_salary',
+        'gross_salary' => 'total_salary',
+        'cash_upad' => 'cash_upad',
+        'payable_salary' => 'payable_salary',
+        'basic_80' => 'basic_80',
+        'basic' => 'basic_80',
+        'hra' => 'hra',
+        'convy' => 'convy',
+        'conveyance' => 'convy',
+        'medi' => 'medi',
+        'medical' => 'medi',
+        'other' => 'other',
+        'other_allowance' => 'other',
+        'allowance' => 'allowance',
+        'spl_allowance' => 'allowance',
+        'special_allowance' => 'allowance',
+        'pf' => 'pf',
+        'emp_pf' => 'pf',
+        'pt' => 'pt',
+        'prof_tax' => 'pt',
+        'upad' => 'upad',
+        'advance' => 'upad',
+        'loan' => 'loan',
+        'tds' => 'tds',
+        'net_payable_in_bank' => 'net_payable_in_bank',
+        'bank_payable' => 'net_payable_in_bank',
+        'actual_salary_9_hrs' => 'actual_salary_9_hrs',
+        'net_payable' => 'net_payable',
+        'ot_salary_loss' => 'ot_salary_loss',
     ];
     return $map[$h] ?? $h;
+}
+
+function attendanceIsHeaderRow(array $data)
+{
+    $nonEmpty = array_filter($data, fn($v) => trim((string) $v) !== '');
+    if (count($nonEmpty) === 0) {
+        return false;
+    }
+    $known = [
+        'employee_code', 'emp_code', 'code', 'empcode',
+        'employee_name', 'emp_name', 'name',
+        'biometric_user_id', 'biometric_id', 'bio_id',
+        'sr_no', 'srno', 'sr', 'department', 'dept',
+        'actual_salary', 'salary', 'working_day', 'working_days',
+        'designation', 'post', 'date_of_joining', 'doj',
+        'attendance_date', 'date', 'punch_time', 'time',
+        'basic_80', 'hra', 'payable_salary'
+    ];
+    $norm = array_map('attendanceNormalizeHeader', $data);
+    $matched = 0;
+    foreach ($norm as $k) {
+        if ($k !== '' && in_array($k, $known, true)) {
+            $matched++;
+        }
+    }
+    return ($matched >= 2) || (count($nonEmpty) >= 4 && $matched >= 1);
 }
 
 function attendanceParseDate($value)
@@ -223,14 +291,110 @@ function attendanceReadSpreadsheet($filePath, $ext)
         return attendanceReadXlsx($filePath);
     }
     if ($ext === 'xls') {
-        $raw = file_get_contents($filePath);
-        if ($raw !== false && stripos($raw, '<table') !== false) {
-            return attendanceReadHtmlTable($raw);
+        $raw = @file_get_contents($filePath, false, null, 0, 512);
+        // Biometric AttendanceCardReport (OLE .xls) — machine card layout
+        if ($raw !== false && strncmp($raw, "\xD0\xCF\x11\xE0", 4) === 0) {
+            $cardRows = attendanceReadCardReportXls($filePath);
+            if ($cardRows) {
+                return $cardRows;
+            }
+            throw new RuntimeException(
+                'Could not parse Attendance Card Report .xls. Ensure Python + xlrd are installed, or export punches as CSV.'
+            );
+        }
+        $full = file_get_contents($filePath);
+        if ($full !== false && stripos($full, '<table') !== false) {
+            return attendanceReadHtmlTable($full);
         }
         // Fallback: try as CSV
         return attendanceReadCsv($filePath);
     }
     throw new RuntimeException('Unsupported file type. Use .xlsx, .xls or .csv');
+}
+
+/**
+ * Resolve Python executable for tools scripts.
+ */
+function attendanceFindPythonBinary()
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $candidates = [
+        'C:\\Users\\ocean\\AppData\\Local\\Python\\bin\\python.exe',
+        'C:\\Python314\\python.exe',
+        'C:\\Python313\\python.exe',
+        'C:\\Python312\\python.exe',
+        'python',
+        'py',
+    ];
+    foreach ($candidates as $bin) {
+        if (strpos($bin, '\\') !== false || strpos($bin, '/') !== false) {
+            if (is_file($bin)) {
+                $cached = $bin;
+                return $cached;
+            }
+            continue;
+        }
+        // probe via `where` on Windows
+        $out = [];
+        $code = 1;
+        @exec(($bin === 'py' ? 'where py' : 'where python') . ' 2>NUL', $out, $code);
+        if ($code === 0 && !empty($out[0]) && is_file($out[0])) {
+            $cached = $out[0];
+            return $cached;
+        }
+    }
+    $cached = '';
+    return $cached;
+}
+
+/**
+ * Parse biometric AttendanceCardReport .xls via Python xlrd helper.
+ * @return array<int,array<string,string>>
+ */
+function attendanceReadCardReportXls($filePath)
+{
+    $script = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'parse_attendance_card_report.py';
+    if (!is_file($script)) {
+        throw new RuntimeException('Attendance card parser missing: tools/parse_attendance_card_report.py');
+    }
+    $python = attendanceFindPythonBinary();
+    if ($python === '') {
+        throw new RuntimeException('Python not found. Install Python + xlrd, or convert report to CSV.');
+    }
+
+    $outFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'att_card_' . uniqid('', true) . '.json';
+    $cmd = escapeshellarg($python) . ' ' . escapeshellarg($script) . ' '
+        . escapeshellarg($filePath) . ' ' . escapeshellarg($outFile) . ' 2>&1';
+    $output = [];
+    $code = 0;
+    exec($cmd, $output, $code);
+    if ($code !== 0 || !is_file($outFile)) {
+        @unlink($outFile);
+        $msg = trim(implode("\n", $output));
+        throw new RuntimeException('Attendance card parse failed' . ($msg !== '' ? (': ' . $msg) : ''));
+    }
+    $json = file_get_contents($outFile);
+    @unlink($outFile);
+    $rows = json_decode((string) $json, true);
+    if (!is_array($rows)) {
+        throw new RuntimeException('Invalid JSON from attendance card parser');
+    }
+    // Normalize keys like flat import expects
+    $out = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $mapped = [];
+        foreach ($row as $k => $v) {
+            $mapped[attendanceNormalizeHeader((string) $k)] = is_scalar($v) ? (string) $v : '';
+        }
+        $out[] = $mapped;
+    }
+    return $out;
 }
 
 function attendanceReadCsv($filePath)
@@ -242,16 +406,22 @@ function attendanceReadCsv($filePath)
     $headers = null;
     $rows = [];
     while (($data = fgetcsv($fh)) !== false) {
-        if ($headers === null) {
-            $headers = array_map('attendanceNormalizeHeader', $data);
+        $nonEmpty = array_filter($data, fn($v) => trim((string) $v) !== '');
+        if (count($nonEmpty) === 0) {
             continue;
         }
-        if (count(array_filter($data, fn($v) => trim((string) $v) !== '')) === 0) {
+        if ($headers === null) {
+            if (!attendanceIsHeaderRow($data)) {
+                continue;
+            }
+            $headers = array_map('attendanceNormalizeHeader', $data);
             continue;
         }
         $row = [];
         foreach ($headers as $i => $key) {
-            $row[$key] = $data[$i] ?? '';
+            if ($key !== '') {
+                $row[$key] = $data[$i] ?? '';
+            }
         }
         $rows[] = $row;
     }
@@ -278,16 +448,22 @@ function attendanceReadHtmlTable($html)
                 $cells[] = trim($td->textContent);
             }
         }
-        if (!$cells) {
+        $nonEmpty = array_filter($cells, fn($v) => trim((string) $v) !== '');
+        if (count($nonEmpty) === 0) {
             continue;
         }
         if ($headers === null) {
+            if (!attendanceIsHeaderRow($cells)) {
+                continue;
+            }
             $headers = array_map('attendanceNormalizeHeader', $cells);
             continue;
         }
         $row = [];
         foreach ($headers as $i => $key) {
-            $row[$key] = $cells[$i] ?? '';
+            if ($key !== '') {
+                $row[$key] = $cells[$i] ?? '';
+            }
         }
         $rows[] = $row;
     }
@@ -303,6 +479,10 @@ function attendanceReadXlsx($filePath)
     }
     $zip = new ZipArchive();
     if ($zip->open($filePath) !== true) {
+        $magic = @file_get_contents($filePath, false, null, 0, 8);
+        if ($magic !== false && bin2hex($magic) === 'd0cf11e0a1b11ae1') {
+            throw new RuntimeException('Aa Excel file password-protected / encrypted che (or older binary XLS format). Please Excel ma file open kari "Save As" -> Standard XLSX athva CSV (UTF-8) save karo, athva decrypted file upload karo.');
+        }
         throw new RuntimeException('Unable to open XLSX file. Try Save As → CSV UTF-8 and upload again.');
     }
     $shared = [];
@@ -367,57 +547,120 @@ function attendanceReadXlsx($filePath)
         for ($i = 0; $i <= $max; $i++) {
             $data[$i] = $cols[$i] ?? '';
         }
-        if ($headers === null) {
-            $headers = array_map('attendanceNormalizeHeader', $data);
+        $nonEmpty = array_filter($data, fn($v) => trim((string) $v) !== '');
+        if (count($nonEmpty) === 0) {
             continue;
         }
-        if (count(array_filter($data, fn($v) => trim((string) $v) !== '')) === 0) {
+        if ($headers === null) {
+            if (!attendanceIsHeaderRow($data)) {
+                continue;
+            }
+            $headers = array_map('attendanceNormalizeHeader', $data);
             continue;
         }
         $row = [];
         foreach ($headers as $i => $key) {
-            $row[$key] = $data[$i] ?? '';
+            if ($key !== '') {
+                $row[$key] = $data[$i] ?? '';
+            }
         }
         $rows[] = $row;
     }
     return $rows;
 }
 
+/**
+ * Normalize biometric/machine IDs: "01097" → "1097"
+ */
+function attendanceNormalizeEmpCode($value)
+{
+    $v = trim((string) $value);
+    if ($v !== '' && preg_match('/^\d+$/', $v)) {
+        $v = ltrim($v, '0');
+        if ($v === '') {
+            $v = '0';
+        }
+    }
+    return $v;
+}
+
 function attendanceFindEmployee($conn, array $row)
 {
-    $code = trim((string) ($row['employee_code'] ?? ''));
-    $bio = trim((string) ($row['biometric_user_id'] ?? ''));
+    $code = attendanceNormalizeEmpCode($row['employee_code'] ?? '');
+    $bio = attendanceNormalizeEmpCode($row['biometric_user_id'] ?? '');
     $name = trim((string) ($row['employee_name'] ?? ''));
+    $select = 'SELECT id, employee_code, employee_name, department_id, week_off_day, pay_type FROM employees WHERE status = 1';
 
-    if ($code !== '') {
-        $stmt = $conn->prepare("SELECT id, employee_code, employee_name, department_id, week_off_day, pay_type FROM employees WHERE status = 1 AND employee_code = ? LIMIT 1");
-        $stmt->bind_param('s', $code);
+    $candidates = [];
+    foreach ([$code, $bio, trim((string) ($row['employee_code'] ?? '')), trim((string) ($row['biometric_user_id'] ?? ''))] as $c) {
+        $c = trim((string) $c);
+        if ($c !== '' && !in_array($c, $candidates, true)) {
+            $candidates[] = $c;
+        }
+    }
+
+    foreach ($candidates as $c) {
+        $stmt = $conn->prepare($select . ' AND (employee_code = ? OR biometric_user_id = ?) LIMIT 1');
+        $stmt->bind_param('ss', $c, $c);
         $stmt->execute();
         $emp = $stmt->get_result()->fetch_assoc();
         $stmt->close();
         if ($emp) {
             return $emp;
         }
-    }
-    if ($bio !== '') {
-        $stmt = $conn->prepare("SELECT id, employee_code, employee_name, department_id, week_off_day, pay_type FROM employees WHERE status = 1 AND biometric_user_id = ? LIMIT 1");
-        $stmt->bind_param('s', $bio);
-        $stmt->execute();
-        $emp = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        if ($emp) {
-            return $emp;
+        // numeric equality: DB "1097" vs import "01097"
+        if (preg_match('/^\d+$/', $c)) {
+            $stmt = $conn->prepare(
+                $select . ' AND (
+                    (employee_code REGEXP \'^[0-9]+$\' AND CAST(employee_code AS UNSIGNED) = CAST(? AS UNSIGNED))
+                    OR (biometric_user_id REGEXP \'^[0-9]+$\' AND CAST(biometric_user_id AS UNSIGNED) = CAST(? AS UNSIGNED))
+                ) LIMIT 1'
+            );
+            $stmt->bind_param('ss', $c, $c);
+            $stmt->execute();
+            $emp = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if ($emp) {
+                return $emp;
+            }
         }
     }
+
     if ($name !== '') {
-        $stmt = $conn->prepare("SELECT id, employee_code, employee_name, department_id, week_off_day, pay_type FROM employees WHERE status = 1 AND employee_name = ? LIMIT 2");
+        $stmt = $conn->prepare($select . ' AND employee_name = ? LIMIT 2');
         $stmt->bind_param('s', $name);
         $stmt->execute();
-        $res = $stmt->get_result();
-        $rows = $res->fetch_all(MYSQLI_ASSOC);
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
         if (count($rows) === 1) {
             return $rows[0];
+        }
+
+        // Compact name match: "JayeshTadvi" ↔ "Jayesh Govindbhai Tadvi"
+        $compact = strtolower(preg_replace('/[^a-z0-9]+/i', '', $name));
+        if (strlen($compact) >= 5) {
+            $res = $conn->query(
+                "SELECT id, employee_code, employee_name, department_id, week_off_day, pay_type
+                 FROM employees WHERE status = 1"
+            );
+            $hits = [];
+            if ($res) {
+                while ($emp = $res->fetch_assoc()) {
+                    $dbCompact = strtolower(preg_replace('/[^a-z0-9]+/i', '', (string) ($emp['employee_name'] ?? '')));
+                    if ($dbCompact === '' ) {
+                        continue;
+                    }
+                    if ($dbCompact === $compact
+                        || strpos($dbCompact, $compact) !== false
+                        || strpos($compact, $dbCompact) !== false
+                    ) {
+                        $hits[] = $emp;
+                    }
+                }
+            }
+            if (count($hits) === 1) {
+                return $hits[0];
+            }
         }
     }
     return null;
@@ -737,6 +980,8 @@ function attendanceRebuildDayStatus($conn, $employeeId, $month, $year)
                 $summary['early_count'] += 1;
             }
 
+            /*
+            // --- PENALTY LOGIC COMMENTED OUT AS PER USER REQUEST ---
             $needsPenalty = false;
             $penaltyReason = '';
             $halfTag = (string) ($flex['half'] ?? 'FHL');
@@ -800,6 +1045,21 @@ function attendanceRebuildDayStatus($conn, $employeeId, $month, $year)
                 }
             } elseif ($wasShortHalf && $remarks) {
                 $remarks = 'Half Day (<4h) · ' . $remarks;
+            }
+            // --- END PENALTY LOGIC COMMENTED OUT ---
+            */
+
+            if ($wasShortHalf) {
+                $remarks = 'Half Day (<4h)';
+            } elseif ($isLate || $isEarly) {
+                $bits = [];
+                if ($isLate) {
+                    $bits[] = 'Late ' . $lateMinutes . 'm';
+                }
+                if ($isEarly) {
+                    $bits[] = 'Early ' . $earlyMinutes . 'm';
+                }
+                $remarks = implode(' · ', $bits);
             }
         } elseif ($isHoliday) {
             $status = 'Holiday';
@@ -1119,6 +1379,8 @@ function attendanceImportFile($conn, $filePath, $originalName, $userId = null)
     $skipped = 0;
     $errors = 0;
     $errorLog = [];
+    $missingMap = []; // key => [code, name, punches, sample_dates[]]
+    $otherErrors = [];
     $touched = []; // empId|Y-m
 
     $lineNo = 1;
@@ -1131,15 +1393,45 @@ function attendanceImportFile($conn, $filePath, $originalName, $userId = null)
         $shift = trim((string) ($row['shift_name'] ?? '')) ?: null;
         $remarks = trim((string) ($row['remarks'] ?? '')) ?: null;
 
+        $rawCode = trim((string) ($row['employee_code'] ?? $row['biometric_user_id'] ?? ''));
+        $rawName = trim((string) ($row['employee_name'] ?? ''));
+
         if (!$date || !$time) {
             $errors++;
-            $errorLog[] = "Row {$lineNo}: invalid date/time";
+            $otherErrors[] = [
+                'row' => $lineNo,
+                'reason' => 'Invalid date/time',
+                'detail' => 'date=' . trim((string) ($row['attendance_date'] ?? '')) .
+                    ', time=' . trim((string) ($row['punch_time'] ?? $row['punch_in_time'] ?? '')),
+                'employee_code' => $rawCode,
+                'employee_name' => $rawName,
+            ];
+            $errorLog[] = "Row {$lineNo}: Invalid date/time"
+                . ($rawCode !== '' || $rawName !== '' ? " — {$rawCode} {$rawName}" : '');
             continue;
         }
         $emp = attendanceFindEmployee($conn, $row);
         if (!$emp) {
             $errors++;
-            $errorLog[] = "Row {$lineNo}: employee not found";
+            $normCode = attendanceNormalizeEmpCode($rawCode);
+            $key = strtolower($normCode !== '' ? $normCode : ($rawName !== '' ? $rawName : 'unknown'));
+            if (!isset($missingMap[$key])) {
+                $missingMap[$key] = [
+                    'employee_code' => $normCode !== '' ? $normCode : $rawCode,
+                    'employee_name' => $rawName,
+                    'punches' => 0,
+                    'sample_dates' => [],
+                    'reason' => 'Employee not found in Employees master',
+                    'fix' => 'Add this employee (code must match machine ID) then re-import',
+                ];
+            }
+            $missingMap[$key]['punches']++;
+            if ($date && count($missingMap[$key]['sample_dates']) < 3) {
+                $missingMap[$key]['sample_dates'][] = $date;
+            }
+            $errorLog[] = "Row {$lineNo}: Employee not found — ID {$rawCode}"
+                . ($rawName !== '' ? " / {$rawName}" : '')
+                . ' — Employees master ma add karo (code = machine ID)';
             continue;
         }
         $empId = (int) $emp['id'];
@@ -1169,7 +1461,26 @@ function attendanceImportFile($conn, $filePath, $originalName, $userId = null)
         }
     }
 
-    $errorText = implode("\n", array_slice($errorLog, 0, 200));
+    $missingEmployees = array_values($missingMap);
+    usort($missingEmployees, static function ($a, $b) {
+        return ((int) ($b['punches'] ?? 0)) <=> ((int) ($a['punches'] ?? 0));
+    });
+
+    $summaryLines = [];
+    if ($missingEmployees) {
+        $summaryLines[] = 'Missing employees (' . count($missingEmployees) . '):';
+        foreach ($missingEmployees as $m) {
+            $summaryLines[] = '- ID ' . ($m['employee_code'] !== '' ? $m['employee_code'] : '—')
+                . ' / ' . ($m['employee_name'] !== '' ? $m['employee_name'] : '—')
+                . ' · ' . (int) $m['punches'] . ' punch(es) skipped'
+                . ' · ' . $m['fix'];
+        }
+    }
+    foreach (array_slice($otherErrors, 0, 50) as $oe) {
+        $summaryLines[] = 'Row ' . $oe['row'] . ': ' . $oe['reason'] . ' — ' . $oe['detail'];
+    }
+
+    $errorText = implode("\n", array_slice($summaryLines ?: $errorLog, 0, 200));
     $upd = $conn->prepare(
         "UPDATE attendance_import_batches
          SET success_rows = ?, skipped_rows = ?, error_rows = ?, error_log = ?
@@ -1186,6 +1497,9 @@ function attendanceImportFile($conn, $filePath, $originalName, $userId = null)
         'skipped' => $skipped,
         'errors' => $errors,
         'error_log' => $errorLog,
+        'missing_employees' => $missingEmployees,
+        'other_errors' => $otherErrors,
+        'error_summary' => $summaryLines,
         'employees_synced' => count($touched),
     ];
 }
@@ -1618,8 +1932,8 @@ function attendanceBuildEmployeeMonthTotals(array $emp, array &$dayMapByDate, $m
             continue;
         }
 
-        // Holiday wins over Week Off — same day must count only once
-        if ($isCalHoliday && (($status === '' && $beforeLastEntry) || $status === 'Week Off' || $status === 'Absent')) {
+        // Holiday wins over Week Off and unexcused absences — same day must count only once
+        if ($isCalHoliday && (($status === '' && $beforeLastEntry) || $status === 'Week Off' || $status === 'Absent' || $cellSource === 'auto_lwp' || ($status === 'Leave' && stripos($cellRemarks, 'LWP') !== false && $cellSource !== 'leave'))) {
             $wasEmpty = ($status === '' || !empty($cell['_virtual']));
             $status = 'Holiday';
             $dayMapByDate[$date] = [

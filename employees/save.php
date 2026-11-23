@@ -189,7 +189,7 @@ if ($id > 0) {
 
 if ($id > 0) {
     $sql = "UPDATE employees SET
-        employee_code=?, biometric_user_id=?, pay_type=?, department_id=?, sub_department_id=?, employee_name=?, father_husband_name=?,
+        employee_code=?, biometric_user_id=?, pay_type=?, department_id=NULLIF(?, 0), sub_department_id=NULLIF(?, 0), employee_name=?, father_husband_name=?,
         permanent_address=?, present_address=?, mobile_number=?, emergency_mobile=?,
         aadhar_number=?, pan_number=?, date_of_birth=NULLIF(?,''), designation=?, date_of_joining=NULLIF(?,''), date_of_exit=NULLIF(?,''),
         shift_type=?, shift_time=?, pf_deduction=?, uan_number=?,
@@ -247,7 +247,7 @@ if ($id > 0) {
         bank_name, bank_account_number, ifsc_code, bank_branch_address,
         decided_salary, reporting_head, extra_note, week_off_day,
         week_off_benefits, holiday_benefits, overtime_benefits, main_contractor_id, created_by, status
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULLIF(?,''),?,NULLIF(?,''),NULLIF(?,''),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    ) VALUES (?,?,?, NULLIF(?, 0), NULLIF(?, 0),?,?,?,?,?,?,?,?,NULLIF(?,''),?,NULLIF(?,''),NULLIF(?,''),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     $stmt = $conn->prepare($sql);
     $stmt->bind_param(
@@ -437,6 +437,9 @@ if ($fromContractor) {
 } elseif ($id > 0) {
     header('Location: ' . app_url('employees/view.php?id=' . $id . '&msg=updated'));
 } else {
-    header('Location: ' . app_url('employees/index.php?department_id=' . $departmentId . '&msg=added'));
+    $redirectUrl = $departmentId > 0
+        ? app_url('employees/index.php?department_id=' . $departmentId . '&msg=added')
+        : app_url('employees/index.php?msg=added');
+    header('Location: ' . $redirectUrl);
 }
 exit;

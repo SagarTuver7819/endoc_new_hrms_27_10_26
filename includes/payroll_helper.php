@@ -1414,3 +1414,426 @@ function moneyInr($n)
 {
     return '₹ ' . number_format((float) $n, 2);
 }
+
+function ensureDefaultSalaryComponents($conn = null)
+{
+    $closeAfter = false;
+    if ($conn === null) {
+        $conn = getDBConnection();
+        $closeAfter = true;
+    }
+    $res = $conn->query("SELECT COUNT(*) AS c FROM salary_components WHERE status = 1");
+    $count = $res ? (int) ($res->fetch_assoc()['c'] ?? 0) : 0;
+    if ($count === 0) {
+        $defaults = [
+            ['BASIC', 'Basic Salary', 'Earning', 'Fixed', 0.00],
+            ['HRA', 'HRA', 'Earning', 'Fixed', 0.00],
+            ['CONVY', 'Conveyance Allowance', 'Earning', 'Fixed', 0.00],
+            ['MEDI', 'Medical Allowance', 'Earning', 'Fixed', 0.00],
+            ['OTHER', 'Other Allowance', 'Earning', 'Fixed', 0.00],
+            ['ALLOWANCE', 'Special Allowance', 'Earning', 'Fixed', 0.00],
+            ['PF', 'Provident Fund (PF)', 'Deduction', 'Fixed', 0.00],
+            ['PT', 'Professional Tax (PT)', 'Deduction', 'Fixed', 0.00],
+        ];
+        $stmt = $conn->prepare("INSERT INTO salary_components (code, component_name, component_type, calculation, default_value, status) VALUES (?,?,?,?,?,1)");
+        if ($stmt) {
+            foreach ($defaults as $d) {
+                $stmt->bind_param('ssssd', $d[0], $d[1], $d[2], $d[3], $d[4]);
+                $stmt->execute();
+            }
+            $stmt->close();
+        }
+    }
+    if ($closeAfter) {
+        $conn->close();
+    }
+}
+
+function payrollImportSalaryHeaders()
+{
+    return [
+        'SR No',
+        'Employee Code',
+        'NAME',
+        'Department',
+        'Direct/Indirect/R&D',
+        'Staff or Worker',
+        'Actual Salary',
+        'WORKING DAY',
+        'Per Day',
+        'Total Salary',
+        'Cash Upad',
+        'Payable SALARY',
+        'Basic 80%',
+        'HRA',
+        'Convy.',
+        'Medi.',
+        'Other',
+        'Allowance',
+        'PF',
+        'PT',
+        'Upad',
+        'Loan',
+        'TDS',
+        'Net Payable in Bank',
+        'Actual Salary (9 HRS)',
+        'Net Payable',
+        'OT /Salary Loss',
+    ];
+}
+
+function payrollImportSalarySpreadsheet($conn, $filePath, $originalName, $month, $year, array $options = [])
+{
+    require_once __DIR__ . '/attendance_helper.php';
+    require_once __DIR__ . '/employee_helper.php';
+
+    $month = (int) $month;
+    $year = (int) $year;
+    if ($month < 1 || $month > 12) {
+        $month = (int) date('n');
+    }
+    if ($year < 2000 || $year > 2100) {
+        $year = (int) date('Y');
+    }
+
+    $monthDays = (int) date('t', strtotime(sprintf('%04d-%02d-01', $year, $month)));
+
+    ensurePayrollTables($conn);
+    ensureEmployeesTable($conn);
+    ensureDefaultSalaryComponents($conn);
+
+    $ext = strtolower(pathinfo((string) $originalName, PATHINFO_EXTENSION));
+    $rows = attendanceReadSpreadsheet($filePath, $ext);
+    if (!$rows) {
+        throw new RuntimeException('No data rows found in spreadsheet. Please check sheet 1 and column headers.');
+    }
+
+    $updateDecided = $options['update_decided_salary'] ?? true;
+    $updateDept    = $options['update_department'] ?? true;
+    $updateStruct  = $options['update_structure'] ?? true;
+    $saveDiary     = $options['save_monthly_diary'] ?? true;
+    $saveSlip      = $options['save_payslip'] ?? true;
+
+    // Load canonical departments map: lowercase name => id
+    $deptMap = [];
+    $dRes = $conn->query("SELECT id, department_name FROM departments WHERE status = 1");
+    if ($dRes) {
+        while ($dr = $dRes->fetch_assoc()) {
+            $raw = strtolower(trim($dr['department_name']));
+            $deptMap[$raw] = (int) $dr['id'];
+            $clean = preg_replace('/[^a-z0-9]+/', '', $raw);
+            if ($clean !== '') {
+                $deptMap[$clean] = (int) $dr['id'];
+            }
+        }
+    }
+    $deptAliases = [
+        'rnd' => 10,
+        'r&d' => 10,
+        'r and d' => 10,
+        'laboratory' => 10,
+        'engineering' => 20,
+        'maintenance' => 20,
+        'mechanical' => 20,
+        'admin' => 1,
+        'administration' => 1,
+        'production' => 14,
+        'qa' => 9,
+        'qc' => 9,
+        'qa/qc' => 9,
+        'qa & qc' => 9,
+        'housekeeping' => 24,
+        'store' => 8,
+        'stores' => 8,
+        'purchase' => 7,
+        'accounts' => 3,
+        'finance' => 3,
+        'security' => 23,
+    ];
+    foreach ($deptAliases as $alias => $dId) {
+        if (!isset($deptMap[$alias])) {
+            $deptMap[$alias] = $dId;
+        }
+    }
+
+    // Load active salary components map
+    $compMap = [];
+    $cRes = $conn->query("SELECT id, code, component_name, component_type, calculation FROM salary_components WHERE status = 1 ORDER BY id ASC");
+    if ($cRes) {
+        while ($cr = $cRes->fetch_assoc()) {
+            if (!empty($cr['code'])) {
+                $compMap[strtolower(trim($cr['code']))] = $cr;
+            }
+            $compMap[strtolower(trim($cr['component_name']))] = $cr;
+        }
+    }
+
+    $success = 0;
+    $skipped = 0;
+    $errors = 0;
+    $errorLog = [];
+    $lineNo = 1;
+
+    $getFloat = function (array $row, array $keys, $default = 0.0) {
+        foreach ($keys as $k) {
+            $kNorm = strtolower(preg_replace('/[^a-z0-9_]+/', '', str_replace([' ', '-', '/', '\\', '.', '%'], '_', $k)));
+            if (isset($row[$kNorm]) && trim((string) $row[$kNorm]) !== '') {
+                $clean = preg_replace('/[^\d\.\-]+/', '', (string) $row[$kNorm]);
+                return is_numeric($clean) ? (float) $clean : (float) $default;
+            }
+            if (isset($row[$k]) && trim((string) $row[$k]) !== '') {
+                $clean = preg_replace('/[^\d\.\-]+/', '', (string) $row[$k]);
+                return is_numeric($clean) ? (float) $clean : (float) $default;
+            }
+        }
+        return (float) $default;
+    };
+
+    $getStr = function (array $row, array $keys, $default = '') {
+        foreach ($keys as $k) {
+            $kNorm = strtolower(preg_replace('/[^a-z0-9_]+/', '', str_replace([' ', '-', '/', '\\', '.', '%'], '_', $k)));
+            if (isset($row[$kNorm]) && trim((string) $row[$kNorm]) !== '') {
+                return trim((string) $row[$kNorm]);
+            }
+            if (isset($row[$k]) && trim((string) $row[$k]) !== '') {
+                return trim((string) $row[$k]);
+            }
+        }
+        return $default;
+    };
+
+    foreach ($rows as $row) {
+        $lineNo++;
+
+        $code = strtoupper($getStr($row, ['employee_code', 'emp_code', 'code', 'empcode']));
+        $name = $getStr($row, ['employee_name', 'name', 'emp_name']);
+
+        $actualSalary = $getFloat($row, ['actual_salary', 'decided_salary', 'salary', 'basic_salary', 'monthly_salary']);
+        $workingDays = $getFloat($row, ['working_day', 'working_days', 'work_days'], 26.0);
+        $totalSalary = $getFloat($row, ['total_salary', 'gross_salary']);
+
+        if ($code === '' && $name === '' && $actualSalary <= 0 && $totalSalary <= 0) {
+            // Trailing empty formula or blank line
+            continue;
+        }
+
+        // Skip subheaders / total rows
+        if (in_array($code, ['EMPLOYEE CODE', 'EMPLOYEE_CODE', 'CODE', 'EMP_CODE', 'SR NO', 'SR_NO']) ||
+            stripos($name, 'TOTAL') !== false || ($code === '' && stripos($name, 'NAME') !== false)) {
+            continue;
+        }
+
+        // Look up employee by code or fallback to name
+        $emp = null;
+        if ($code !== '') {
+            $empStmt = $conn->prepare("SELECT id, employee_code, employee_name, department_id, decided_salary, pf_deduction, pay_type FROM employees WHERE employee_code = ? LIMIT 1");
+            $empStmt->bind_param('s', $code);
+            $empStmt->execute();
+            $emp = $empStmt->get_result()->fetch_assoc();
+            $empStmt->close();
+        }
+
+        if (!$emp && $name !== '') {
+            // Fallback match by name
+            $empStmt = $conn->prepare("SELECT id, employee_code, employee_name, department_id, decided_salary, pf_deduction, pay_type FROM employees WHERE employee_name = ? LIMIT 1");
+            $empStmt->bind_param('s', $name);
+            $empStmt->execute();
+            $emp = $empStmt->get_result()->fetch_assoc();
+            $empStmt->close();
+            if ($emp && $code === '') {
+                $code = strtoupper((string) $emp['employee_code']);
+            }
+        }
+
+        if ($code === '') {
+            $errors++;
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'error',
+                'code' => '—',
+                'name' => $name ?: '—',
+                'problem' => 'Employee Code is missing on this row.',
+                'solution' => "Add the Employee Code in Excel Row {$lineNo} and re-upload.",
+            ];
+            continue;
+        }
+
+        if (!$emp) {
+            $skipped++;
+            $errorLog[] = [
+                'row' => $lineNo,
+                'type' => 'skipped',
+                'code' => $code,
+                'name' => $name ?: '—',
+                'problem' => "Employee code \"{$code}\" not found in Employee Master.",
+                'solution' => 'Add this employee in Employees Master first or check if the code in Excel matches the system employee code.',
+            ];
+            continue;
+        }
+
+        $empId = (int) $emp['id'];
+        $payType = normalizePayType($emp['pay_type'] ?? 'Salary');
+
+        $deptSheet       = $getStr($row, ['department', 'dept', 'department_name']);
+        $staffOrWorker   = $getStr($row, ['staff_or_worker', 'staff_worker', 'category']);
+        $perDay          = $getFloat($row, ['per_day', 'perday']);
+        $cashUpad        = $getFloat($row, ['cash_upad', 'cash_advance']);
+        $payableSalary   = $getFloat($row, ['payable_salary', 'payable_sal']);
+        $basic80         = $getFloat($row, ['basic_80', 'basic']);
+        $hra             = $getFloat($row, ['hra']);
+        $convy           = $getFloat($row, ['convy', 'conveyance']);
+        $medi            = $getFloat($row, ['medi', 'medical']);
+        $other           = $getFloat($row, ['other', 'other_allowance']);
+        $allowance       = $getFloat($row, ['allowance', 'spl_allowance', 'special_allowance']);
+        $pf              = $getFloat($row, ['pf', 'emp_pf']);
+        $pt              = $getFloat($row, ['pt', 'prof_tax']);
+        $upad            = $getFloat($row, ['upad', 'advance']);
+        $loan            = $getFloat($row, ['loan']);
+        $tds             = $getFloat($row, ['tds']);
+        $netPayableInBank= $getFloat($row, ['net_payable_in_bank', 'net_in_bank', 'bank_payable']);
+        $actual9Hrs      = $getFloat($row, ['actual_salary_9_hrs', 'actual_salary_9hrs']);
+        $netPayable      = $getFloat($row, ['net_payable']);
+        $otSalaryLoss    = $getFloat($row, ['ot_salary_loss', 'ot_loss', 'salary_loss']);
+
+        // 1. Update Decided Salary
+        if ($updateDecided && $actualSalary > 0) {
+            $pfDed = ($pf > 0) ? 'Yes' : ($emp['pf_deduction'] ?? 'No');
+            $upEmp = $conn->prepare("UPDATE employees SET decided_salary = ?, pf_deduction = ? WHERE id = ?");
+            $upEmp->bind_param('dsi', $actualSalary, $pfDed, $empId);
+            $upEmp->execute();
+            $upEmp->close();
+            employeeCorrectCurrentSalary($conn, $empId, $actualSalary);
+        }
+
+        // 2. Update Department if sheet has department name
+        if ($updateDept && $deptSheet !== '' && strtolower($deptSheet) !== 'department') {
+            $deptKey = strtolower(trim($deptSheet));
+            $cleanKey = preg_replace('/[^a-z0-9]+/', '', $deptKey);
+            $targetDeptId = $deptMap[$deptKey] ?? ($deptMap[$cleanKey] ?? 0);
+            if ($targetDeptId > 0) {
+                $upDept = $conn->prepare("UPDATE employees SET department_id = ? WHERE id = ?");
+                $upDept->bind_param('ii', $targetDeptId, $empId);
+                $upDept->execute();
+                $upDept->close();
+            }
+        }
+
+        // 3. Update Salary Components in employee_salary_details
+        if ($updateStruct) {
+            $delStmt = $conn->prepare("DELETE FROM employee_salary_details WHERE employee_id = ? AND line_type = 'component'");
+            $delStmt->bind_param('i', $empId);
+            $delStmt->execute();
+            $delStmt->close();
+
+            $componentsToInsert = [
+                ['BASIC', 'Basic Salary', 'Earning', 'Fixed', $basic80 > 0 ? round($basic80) : ($actualSalary > 0 ? round($actualSalary * 0.8) : 0)],
+                ['HRA', 'HRA', 'Earning', 'Fixed', round($hra)],
+                ['CONVY', 'Conveyance Allowance', 'Earning', 'Fixed', round($convy)],
+                ['MEDI', 'Medical Allowance', 'Earning', 'Fixed', round($medi)],
+                ['OTHER', 'Other Allowance', 'Earning', 'Fixed', round($other)],
+                ['ALLOWANCE', 'Special Allowance', 'Earning', 'Fixed', round($allowance)],
+                ['PF', 'Provident Fund (PF)', 'Deduction', 'Fixed', round($pf)],
+                ['PT', 'Professional Tax (PT)', 'Deduction', 'Fixed', round($pt)],
+            ];
+
+            $insComp = $conn->prepare(
+                "INSERT INTO employee_salary_details
+                 (employee_id, line_type, component_id, slab_id, label, component_type, calculation, amount)
+                 VALUES (?, 'component', ?, 0, ?, ?, ?, ?)"
+            );
+
+            foreach ($componentsToInsert as $cItem) {
+                $cKey = strtolower($cItem[0]);
+                $cMaster = $compMap[$cKey] ?? ($compMap[strtolower($cItem[1])] ?? null);
+                $cId = $cMaster ? (int) $cMaster['id'] : 0;
+                $label = $cMaster ? (string) $cMaster['component_name'] : $cItem[1];
+                $cType = $cMaster ? (string) $cMaster['component_type'] : $cItem[2];
+                $cCalc = $cMaster ? (string) $cMaster['calculation'] : $cItem[3];
+                $amount = (float) $cItem[4];
+
+                $insComp->bind_param('iisssd', $empId, $cId, $label, $cType, $cCalc, $amount);
+                $insComp->execute();
+            }
+            $insComp->close();
+        }
+
+        // 4. Save Salary Diary entry for month & year
+        if ($saveDiary) {
+            $totalAdvance = round($upad + $cashUpad, 2);
+            $presentDays = min($workingDays, (float) $monthDays);
+            $remarks = $staffOrWorker !== '' ? "Imported via Excel ({$staffOrWorker})" : 'Imported via Excel';
+            $insDiary = $conn->prepare(
+                "INSERT INTO salary_diary (employee_id, month_no, year_no, working_days, present_days, advance_amount, loan_amount, remarks)
+                 VALUES (?,?,?,?,?,?,?,?)
+                 ON DUPLICATE KEY UPDATE
+                    working_days = VALUES(working_days),
+                    present_days = VALUES(present_days),
+                    advance_amount = VALUES(advance_amount),
+                    loan_amount = VALUES(loan_amount),
+                    remarks = VALUES(remarks)"
+            );
+            $insDiary->bind_param('iiidddds', $empId, $month, $year, $workingDays, $presentDays, $totalAdvance, $loan, $remarks);
+            $insDiary->execute();
+            $insDiary->close();
+        }
+
+        // 5. Save Payslip for month & year
+        if ($saveSlip) {
+            $earnings = $payableSalary > 0 ? $payableSalary : ($totalSalary > 0 ? $totalSalary : $actualSalary);
+            $totalDeductions = round($pf + $pt + $upad + $cashUpad + $loan + $tds, 2);
+            $net = $netPayableInBank > 0 ? $netPayableInBank : ($netPayable > 0 ? $netPayable : max(0, round($earnings - $totalDeductions, 2)));
+
+            $breakup = [
+                'actual_salary'        => $actualSalary,
+                'working_days'         => $workingDays,
+                'per_day'              => $perDay,
+                'total_salary'         => $totalSalary,
+                'cash_upad'            => $cashUpad,
+                'payable_salary'       => $payableSalary,
+                'basic_80'             => $basic80,
+                'hra'                  => $hra,
+                'convy'                => $convy,
+                'medi'                 => $medi,
+                'other'                => $other,
+                'allowance'            => $allowance,
+                'pf'                   => $pf,
+                'pt'                   => $pt,
+                'upad'                 => $upad,
+                'loan'                 => $loan,
+                'tds'                  => $tds,
+                'net_payable_in_bank'  => $netPayableInBank,
+                'actual_salary_9_hrs'  => $actual9Hrs,
+                'net_payable'          => $netPayable,
+                'ot_salary_loss'       => $otSalaryLoss,
+                'department_sheet'     => $deptSheet,
+                'staff_or_worker'      => $staffOrWorker,
+            ];
+
+            savePayslip($empId, $month, $year, [
+                'pay_type'       => $payType,
+                'generated_from' => 'excel_import',
+                'present_days'   => min($workingDays, (float) $monthDays),
+                'working_days'   => $workingDays,
+                'jobwork_total'  => 0,
+                'actual_amount'  => $actualSalary,
+                'govt_gross'     => $earnings,
+                'slab_id'        => 0,
+                'earnings'       => $earnings,
+                'deductions'     => $totalDeductions,
+                'net_salary'     => $net,
+                'breakup'        => $breakup,
+            ]);
+        }
+
+        $success++;
+    }
+
+    return [
+        'success'  => $success,
+        'skipped'  => $skipped,
+        'errors'   => $errors,
+        'errorLog' => $errorLog,
+        'month'    => $month,
+        'year'     => $year,
+    ];
+}
