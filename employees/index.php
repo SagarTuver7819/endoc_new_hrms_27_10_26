@@ -169,7 +169,6 @@ $excelUrl = app_url('employees/export_excel.php?view=' . $view . ($deptId > 0 ? 
                         <?php if ($isAllReport): ?>
                             <th>Department</th>
                         <?php endif; ?>
-                        <th>Type</th>
                         <th>Designation</th>
                         <?php if (!empty($isOnFieldDept)): ?>
                             <th>Assigned State</th>
@@ -202,24 +201,24 @@ $excelUrl = app_url('employees/export_excel.php?view=' . $view . ($deptId > 0 ? 
     window.EMP_IS_EXIT     = <?php echo $isExit ? 'true' : 'false'; ?>;
     window.EMP_IS_ON_FIELD = <?php echo $isOnFieldDept ? 'true' : 'false'; ?>;
     <?php
-    // Action col indexes: PDF + Action at end
-    // Base active dept: Sr,Code,Name,Type,Desig,Mobile,Join,Shift,PDF,Action => PDF=8 Action=9
-    // On-field adds State+Location after Designation => PDF=10 Action=11
+    // Action col indexes: PDF + Action at end (Type column removed)
+    // Base active dept: Sr,Code,Name,Desig,Mobile,Join,Shift,PDF,Action => PDF=7 Action=8
+    // All report adds Department => PDF=8 Action=9
     if ($isExit) {
         if ($isAllReport) {
-            $pdfCol = 11; $actCol = 12;
-        } elseif ($isOnFieldDept) {
-            $pdfCol = 12; $actCol = 13;
-        } else {
             $pdfCol = 10; $actCol = 11;
+        } elseif ($isOnFieldDept) {
+            $pdfCol = 11; $actCol = 12;
+        } else {
+            $pdfCol = 9; $actCol = 10;
         }
     } else {
         if ($isAllReport) {
-            $pdfCol = 9; $actCol = 10;
-        } elseif ($isOnFieldDept) {
-            $pdfCol = 10; $actCol = 11;
-        } else {
             $pdfCol = 8; $actCol = 9;
+        } elseif ($isOnFieldDept) {
+            $pdfCol = 9; $actCol = 10;
+        } else {
+            $pdfCol = 7; $actCol = 8;
         }
     }
     ?>

@@ -55,13 +55,12 @@ if ($isExit) {
             1 => 'e.employee_code',
             2 => 'e.employee_name',
             3 => 'd.department_name',
-            4 => 'e.pay_type',
-            5 => 'e.designation',
-            6 => 'e.mobile_number',
-            7 => 'e.date_of_joining',
-            8 => 'e.date_of_exit',
-            9 => 'e.shift_type',
-            10 => 'e.status',
+            4 => 'e.designation',
+            5 => 'e.mobile_number',
+            6 => 'e.date_of_joining',
+            7 => 'e.date_of_exit',
+            8 => 'e.shift_type',
+            9 => 'e.status',
         ];
     } else {
         if ($isOnField) {
@@ -69,28 +68,26 @@ if ($isExit) {
                 0 => 'e.id',
                 1 => 'e.employee_code',
                 2 => 'e.employee_name',
-                3 => 'e.pay_type',
-                4 => 'e.designation',
-                5 => 'ast.name',
-                6 => 'aloc.name',
-                7 => 'e.mobile_number',
-                8 => 'e.date_of_joining',
-                9 => 'e.date_of_exit',
-                10 => 'e.shift_type',
-                11 => 'e.status',
+                3 => 'e.designation',
+                4 => 'ast.name',
+                5 => 'aloc.name',
+                6 => 'e.mobile_number',
+                7 => 'e.date_of_joining',
+                8 => 'e.date_of_exit',
+                9 => 'e.shift_type',
+                10 => 'e.status',
             ];
         } else {
             $columns = [
                 0 => 'e.id',
                 1 => 'e.employee_code',
                 2 => 'e.employee_name',
-                3 => 'e.pay_type',
-                4 => 'e.designation',
-                5 => 'e.mobile_number',
-                6 => 'e.date_of_joining',
-                7 => 'e.date_of_exit',
-                8 => 'e.shift_type',
-                9 => 'e.status',
+                3 => 'e.designation',
+                4 => 'e.mobile_number',
+                5 => 'e.date_of_joining',
+                6 => 'e.date_of_exit',
+                7 => 'e.shift_type',
+                8 => 'e.status',
             ];
         }
     }
@@ -100,11 +97,10 @@ if ($isExit) {
         1 => 'e.employee_code',
         2 => 'e.employee_name',
         3 => 'd.department_name',
-        4 => 'e.pay_type',
-        5 => 'e.designation',
-        6 => 'e.mobile_number',
-        7 => 'e.date_of_joining',
-        8 => 'e.shift_type',
+        4 => 'e.designation',
+        5 => 'e.mobile_number',
+        6 => 'e.date_of_joining',
+        7 => 'e.shift_type',
     ];
 } else {
     if ($isOnField) {
@@ -112,24 +108,22 @@ if ($isExit) {
             0 => 'e.id',
             1 => 'e.employee_code',
             2 => 'e.employee_name',
-            3 => 'e.pay_type',
-            4 => 'e.designation',
-            5 => 'ast.name',
-            6 => 'aloc.name',
-            7 => 'e.mobile_number',
-            8 => 'e.date_of_joining',
-            9 => 'e.shift_type',
+            3 => 'e.designation',
+            4 => 'ast.name',
+            5 => 'aloc.name',
+            6 => 'e.mobile_number',
+            7 => 'e.date_of_joining',
+            8 => 'e.shift_type',
         ];
     } else {
         $columns = [
             0 => 'e.id',
             1 => 'e.employee_code',
             2 => 'e.employee_name',
-            3 => 'e.pay_type',
-            4 => 'e.designation',
-            5 => 'e.mobile_number',
-            6 => 'e.date_of_joining',
-            7 => 'e.shift_type',
+            3 => 'e.designation',
+            4 => 'e.mobile_number',
+            5 => 'e.date_of_joining',
+            6 => 'e.shift_type',
         ];
     }
 }
@@ -277,10 +271,6 @@ while ($row = $result->fetch_assoc()) {
     $pdfEn   = app_url('employees/pdf.php?id=' . $id . '&lang=en');
     $pdfHi   = app_url('employees/pdf.php?id=' . $id . '&lang=hi');
     $salaryUrl = app_url('employees/salary.php?id=' . $id);
-    $payType = function_exists('normalizePayType') ? normalizePayType($row['pay_type'] ?? 'Salary') : ((($row['pay_type'] ?? '') === 'Jobwork') ? 'Jobwork' : 'Salary');
-    $payClass = function_exists('payTypeCssClass') ? payTypeCssClass($payType) : ($payType === 'Jobwork' ? 'is-jobwork' : 'is-salary');
-    $payLabel = function_exists('payTypeLabel') ? payTypeLabel($payType) : $payType;
-
     $isDeactive = isEmployeeDeactive($row);
 
     $nameHtml = '<div class="emp-name-cell" onclick="event.stopPropagation();">';
@@ -300,7 +290,6 @@ while ($row = $result->fetch_assoc()) {
         $item[] = htmlspecialchars($row['department_name'] ?? '-');
     }
 
-    $item[] = '<span class="pay-pill ' . $payClass . '">' . htmlspecialchars($payLabel) . '</span>';
     $item[] = htmlspecialchars($row['designation'] ?? '-');
     if ($isOnField && !$isAll) {
         $item[] = htmlspecialchars($row['assigned_state_name'] ?? '-');
@@ -315,7 +304,8 @@ while ($row = $result->fetch_assoc()) {
         $item[] = '<span class="exit-date-badge"><i class="fa-solid fa-door-open"></i> ' . htmlspecialchars($exitDateShow) . '</span>';
     }
 
-    $item[] = htmlspecialchars($row['shift_type'] ?? '-');
+    $shiftShow = trim((string) ($row['shift_type'] ?? ''));
+    $item[] = htmlspecialchars($shiftShow !== '' ? $shiftShow : '—');
 
     if ($isExit) {
         $item[] = '<span class="status-pill status-deactive"><i class="fa-solid fa-circle"></i> Deactive</span>';
