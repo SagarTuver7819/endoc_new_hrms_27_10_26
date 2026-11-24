@@ -166,20 +166,7 @@ $selectedRole = isset($_POST['login_as']) && in_array($_POST['login_as'], $uiRol
     <div class="login-bg-grid"></div>
     <div class="login-bg-sweep"></div>
 
-    <?php
-    // Endoc APIs — https://endocbiotech.com/product
-    $beltItems = [
-        ['MUPIROCIN', 'API', 'fa-capsules'],
-        ['MUPIROCIN Ca', 'API', 'fa-flask'],
-        ['TACROLIMUS', 'API', 'fa-prescription-bottle'],
-        ['FUSIDIC ACID', 'UP', 'fa-vial'],
-        ['CYCLOSPORINE', 'UP', 'fa-syringe'],
-        ['DAPTOMYCIN', 'UP', 'fa-pills'],
-        ['GMP', 'QC', 'fa-certificate'],
-        ['WHO-GMP', 'QC', 'fa-shield-halved'],
-    ];
-    ?>
-
+    <!-- Soft biotech watermarks (like Fezzan gears) -->
     <svg class="bio-wm bio-wm-1" viewBox="0 0 120 120" aria-hidden="true">
         <circle cx="60" cy="28" r="10" fill="#008094"/><circle cx="28" cy="78" r="10" fill="#8B3A36"/>
         <circle cx="92" cy="78" r="10" fill="#006070"/><circle cx="60" cy="60" r="8" fill="#008094"/>
@@ -196,48 +183,76 @@ $selectedRole = isset($_POST['login_as']) && in_array($_POST['login_as'], $uiRol
         <rect x="6" y="24" width="52" height="16" rx="4" fill="#008094" opacity="0.35"/>
     </svg>
 
-    <div class="bio-belt-scene">
-        <div class="bio-desk">
-            <div class="bio-desk-glow"></div>
-            <div class="bio-monitor">
-                <span class="bio-monitor-screen"><i class="fa-solid fa-dna"></i></span>
-            </div>
-            <div class="bio-desk-body"></div>
-            <div class="bio-desk-label">R&amp;D</div>
+    <?php
+    // All products from https://endocbiotech.com/product (Commercialized + Upcoming)
+    $beltSvg = [
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8.5 3.5a4.5 4.5 0 0 0 0 9h7a4.5 4.5 0 0 0 0-9h-7zm0 2h3.2v5H8.5a2.5 2.5 0 0 1 0-5zm4.8 0H15.5a2.5 2.5 0 0 1 0 5h-2.2V5.5z"/></svg>',
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6v2h-1v5.6l4.7 8.2A2.5 2.5 0 0 1 16.5 22h-9a2.5 2.5 0 0 1-2.2-4.2L10 9.6V4H9V2zm2 7.8-4.3 7.5a.5.5 0 0 0 .4.7h9.8a.5.5 0 0 0 .4-.7L13 9.8V4h-2v5.8z"/></svg>',
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6v3h-1v2.2l1.8 1.4A4 4 0 0 1 18 12v7a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-7a4 4 0 0 1 2.2-3.4L10 7.2V5H9V2zm2 5.5-1.3 1A2 2 0 0 0 9 12v7a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-7a2 2 0 0 0-.7-1.5L13 7.5V5h-2v2.5z"/></svg>',
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 2h8v3H8V2zm1 5h6v2.2l3 9.3A2.5 2.5 0 0 1 15.6 22H8.4A2.5 2.5 0 0 1 6 18.5L9 9.2V7zm2 2.4-2.5 7.8a.5.5 0 0 0 .5.7h6a.5.5 0 0 0 .5-.7L13 9.4V9h-2v.4z"/></svg>',
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m19.8 2.2 2 2-2.1 2.1 1.4 1.4-1.4 1.4-1.4-1.4-1.8 1.8 1.1 1.1-1.4 1.4-1.1-1.1-8.2 8.2H4.5L2 22l1.8-2.5V17l8.2-8.2-1.1-1.1 1.4-1.4 1.1 1.1 1.8-1.8-1.4-1.4 1.4-1.4 1.4 1.4 2.1-2.1zM10 14.2 6.8 17.4h2.1L12 14.3 10 14.2z"/></svg>',
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8.5 4A4.5 4.5 0 1 1 8.5 13 4.5 4.5 0 0 1 8.5 4zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM15.5 11A4.5 4.5 0 1 1 15.5 20a4.5 4.5 0 0 1 0-9zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>',
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0-7.5.9 2.2 2.3-.4-.4 2.3 2.2.9-2.2.9.4 2.3-2.3-.4L12 13.5l-.9-2.2-2.3.4.4-2.3L7 8.5l2.2-.9-.4-2.3 2.3.4L12 2.5zM4.5 14l1.5.6.6 1.5-.6 1.5-1.5.6-1.5-.6L2.4 16l.6-1.5L4.5 14zm15 0 1.5.6.6 1.5-.6 1.5-1.5.6-1.5-.6-.6-1.5.6-1.5 1.5-.6z"/></svg>',
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 2c2.5 2.8 4 5.8 4 10S10.5 19.2 8 22h2c2.2-2.5 3.5-5.4 3.8-8.5.3 3.1 1.6 6 3.8 8.5h2c-2.5-2.8-4-5.8-4-10S17.5 4.8 20 2h-2c-2.2 2.5-3.5 5.4-3.8 8.5C14 7.4 12.7 4.5 10.5 2H8zm1.5 6.5h5v2h-5v-2zm0 5h5v2h-5v-2z"/></svg>',
+    ];
+    $beltItems = [
+        // Commercialized
+        ['Mupirocin', 'Commercial', 0],
+        ['Mupirocin Calcium', 'Commercial', 1],
+        ['Tacrolimus', 'Commercial', 2],
+        // Upcoming
+        ['Fusidic Acid', 'Upcoming', 3],
+        ['Cyclosporine', 'Upcoming', 4],
+        ['Daptomycin', 'Upcoming', 5],
+        ['Nystatin', 'Upcoming', 6],
+        ['Polymyxin B', 'Upcoming', 5],
+        ['Polymyxin B Sulfate', 'Upcoming', 0],
+        ['Mitomycin', 'Upcoming', 7],
+        ['Mycophenolate Mofetil', 'Upcoming', 2],
+        ['Mycophenolate Sodium', 'Upcoming', 1],
+        ['Micafungin Sodium', 'Upcoming', 3],
+        ['Sirolimus', 'Upcoming', 4],
+        ['Pimecrolimus', 'Upcoming', 6],
+        ['Caspofungin (Acetate)', 'Upcoming', 7],
+        ['Teicoplanin', 'Upcoming', 0],
+        ['Anidulafungin', 'Upcoming', 1],
+        ['Temsirolimus', 'Upcoming', 2],
+        ['Everolimus', 'Upcoming', 5],
+        ['Voclosporin', 'Upcoming', 4],
+    ];
+    ?>
+    <div class="bio-belt-scene bio-belt-products" aria-hidden="true">
+        <div class="bio-lane-lab">
+            <span class="bio-lane-ico">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6v2h-1v5.6l4.7 8.2A2.5 2.5 0 0 1 16.5 22h-9a2.5 2.5 0 0 1-2.2-4.2L10 9.6V4H9V2zm2 7.8-4.3 7.5a.5.5 0 0 0 .4.7h9.8a.5.5 0 0 0 .4-.7L13 9.8V4h-2v5.8z"/></svg>
+            </span>
+            <strong>R&amp;D</strong>
         </div>
 
         <div class="bio-belt">
             <div class="bio-belt-track"></div>
             <div class="bio-belt-items">
-                <?php foreach ($beltItems as $i => $item): ?>
-                    <div class="bio-belt-item bio-bi-<?php echo (int) $i; ?>">
-                        <span class="bio-bi-ico"><i class="fa-solid <?php echo htmlspecialchars($item[2]); ?>"></i></span>
-                        <strong><?php echo htmlspecialchars($item[0]); ?></strong>
-                        <em><?php echo htmlspecialchars($item[1]); ?></em>
-                    </div>
-                <?php endforeach; ?>
-                <?php foreach ($beltItems as $i => $item): ?>
-                    <div class="bio-belt-item bio-bi-dup bio-bi-<?php echo (int) $i; ?>">
-                        <span class="bio-bi-ico"><i class="fa-solid <?php echo htmlspecialchars($item[2]); ?>"></i></span>
-                        <strong><?php echo htmlspecialchars($item[0]); ?></strong>
-                        <em><?php echo htmlspecialchars($item[1]); ?></em>
-                    </div>
-                <?php endforeach; ?>
+                <?php for ($loop = 0; $loop < 2; $loop++): ?>
+                    <?php foreach ($beltItems as $i => $item): ?>
+                        <div class="bio-belt-item bio-bi-<?php echo (int) $i; ?>">
+                            <span class="bio-bi-ico"><?php echo $beltSvg[(int) $item[2]]; ?></span>
+                            <strong><?php echo htmlspecialchars($item[0]); ?></strong>
+                            <em><?php echo htmlspecialchars($item[1]); ?></em>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endfor; ?>
             </div>
         </div>
 
-        <div class="bio-gate">
-            <div class="bio-gate-arch">QC</div>
-            <div class="bio-gate-badge bio-gate-gmp">GMP</div>
-            <div class="bio-gate-badge bio-gate-ready">READY</div>
+        <div class="bio-lane-qc">
+            <span>QC</span>
+            <span>GMP</span>
         </div>
     </div>
 </div>
 
 <div class="login-center">
     <div class="login-card anim-in">
-        <span class="login-hub-badge">Command Hub</span>
-
         <header class="login-brand">
             <?php if ($hasLogoFile): ?>
                 <div class="login-logo-wrap anim-logo">
@@ -253,6 +268,7 @@ $selectedRole = isset($_POST['login_as']) && in_array($_POST['login_as'], $uiRol
                 </div>
             <?php endif; ?>
 
+            <span class="login-hub-badge">Secure Login</span>
             <h1 class="login-portal-title">Human Resource Management</h1>
             <p class="login-tagline">Endoc Biotech Pvt Ltd · HRMS</p>
         </header>
@@ -288,28 +304,28 @@ $selectedRole = isset($_POST['login_as']) && in_array($_POST['login_as'], $uiRol
             </div>
 
             <div class="login-field">
-                <label for="username">Credential ID</label>
+                <label for="username">Username</label>
                 <div class="login-input-wrap">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <input type="text" id="username" name="username" placeholder="Credential ID" required
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" id="username" name="username" placeholder="Enter username" required
                            autocomplete="username"
                            value="<?php echo isset($username) ? htmlspecialchars($username) : ''; ?>">
                 </div>
             </div>
 
             <div class="login-field">
-                <label for="password">Encryption Key</label>
+                <label for="password">Password</label>
                 <div class="login-input-wrap">
                     <i class="fa-solid fa-lock"></i>
-                    <input type="password" id="password" name="password" placeholder="Encryption Key" required
+                    <input type="password" id="password" name="password" placeholder="Enter password" required
                            autocomplete="current-password">
                 </div>
             </div>
 
             <button type="submit" class="login-btn" id="btnLogin">
                 <span class="login-btn-text">
-                    Validate &amp; Initiate Session
-                    <i class="fa-solid fa-bolt"></i>
+                    Sign In
+                    <i class="fa-solid fa-arrow-right"></i>
                 </span>
                 <span class="login-btn-load" hidden>
                     <i class="fa-solid fa-circle-notch fa-spin"></i>
