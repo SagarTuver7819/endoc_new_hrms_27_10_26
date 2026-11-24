@@ -5,9 +5,14 @@
 
 # Environment / secrets (NEVER commit real passwords)
 .env
+.env.live
 .env.local
 .env.production
 .env.*.local
+
+# DB config with live credentials (keep local only)
+config/database.php
+config/env.php
 
 # OS / editor
 .DS_Store
