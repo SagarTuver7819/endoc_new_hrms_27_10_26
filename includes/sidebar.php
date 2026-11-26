@@ -394,23 +394,6 @@ $sidebarCompanyName = function_exists('getCompanyName') ? getCompanyName() : 'En
         <div class="sidebar-section sidebar-emp-section">
             <div class="sidebar-section-title">Modules</div>
 
-            <?php if ($canRecruitment): ?>
-            <div class="sidebar-accordion <?php echo $openRecruitment ? 'is-open' : ''; ?>" data-accordion="recruitment" data-default-open="<?php echo $openRecruitment ? '1' : '0'; ?>">
-                <button type="button" class="sidebar-acc-btn <?php echo $openRecruitment ? 'is-active' : ''; ?>" aria-expanded="<?php echo $openRecruitment ? 'true' : 'false'; ?>">
-                    <span class="sidebar-acc-left">
-                        <span class="sidebar-emp-ico" style="--emp-ico:#008094;"><i class="fa-solid fa-user-plus"></i></span>
-                        <span class="sidebar-emp-txt"><strong>Recruitment</strong><small>Hiring pipeline</small></span>
-                    </span>
-                    <i class="fa-solid fa-chevron-down sidebar-acc-caret"></i>
-                </button>
-                <div class="sidebar-submenu">
-                    <a href="<?php echo app_url('recruitment/index.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'recruitment' ? 'active' : ''; ?>"><i class="fa-solid fa-inbox"></i><span>Applications</span></a>
-                    <a href="<?php echo app_url('recruitment/interviews.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'recruitment_interview' ? 'active' : ''; ?>"><i class="fa-solid fa-clipboard-user"></i><span>Interview Candidates</span></a>
-                    <a href="<?php echo app_url('recruitment/qr.php'); ?>" class="sidebar-link sidebar-sublink <?php echo $sidebarActive === 'recruitment_qr' ? 'active' : ''; ?>"><i class="fa-solid fa-qrcode"></i><span>Apply QR Code</span></a>
-                </div>
-            </div>
-            <?php endif; ?>
-
             <?php if ($canEmployeeVoiceAdmin): ?>
             <div class="sidebar-accordion <?php echo $openEmployeeVoice ? 'is-open' : ''; ?>" data-accordion="employee_voice" data-default-open="<?php echo $openEmployeeVoice ? '1' : '0'; ?>">
                 <button type="button" class="sidebar-acc-btn <?php echo $openEmployeeVoice ? 'is-active' : ''; ?>" aria-expanded="<?php echo $openEmployeeVoice ? 'true' : 'false'; ?>">
