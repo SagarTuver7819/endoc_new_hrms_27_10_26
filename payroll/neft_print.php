@@ -27,7 +27,7 @@ if (($data['lock']['approval_status'] ?? 'approved') !== 'approved') {
     die('NEFT sheet is not final yet. It can be printed after Accounts marks it Done.');
 }
 $monthLabel = date('F Y', mktime(0, 0, 0, $month, 1, $year));
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 $typeLabel = salaryRegisterTypes()[$type] ?? $type;
 ?>
 <!DOCTYPE html>

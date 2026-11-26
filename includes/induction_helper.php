@@ -69,7 +69,7 @@ function employeeTrainingTrackType(array $emp)
 }
 
 /**
- * Topic lists with coverage (matches ASIPL Trainer & Trainee Signature Sheet)
+ * Topic lists with coverage (Endoc Trainer & Trainee Signature Sheet)
  *
  * @return array{key:string,label:string,topics:array<int,array{topic:string,coverage:string}>}
  */

@@ -2467,7 +2467,7 @@ function employeeImportFile($conn, $filePath, $originalName, $defaultDeptId = 0,
 
 /**
  * Issue / reuse Appointment Letter no for an employee.
- * Series: ASIPL/HR/APPOINT/{FY}/####
+ * Series: ENDOC/HR/APPOINT/{FY}/####
  * @return array{ok:bool,appointment_letter_no?:string,error?:string}
  */
 function employeeIssueAppointmentLetter($employeeId, $conn = null)

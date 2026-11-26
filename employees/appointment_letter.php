@@ -1,7 +1,7 @@
 <?php
 /**
  * Appointment Letter — 3-page A4, letterhead + full terms
- * Doc No: ASIPL/HR/APPOINT/{FY}/####
+ * Doc No: ENDOC/HR/APPOINT/{FY}/####
  */
 
 require_once __DIR__ . '/../config/app.php';

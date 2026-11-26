@@ -26,7 +26,7 @@ $monthLabel = $months[(int) $sheet['month_no']] ?? $sheet['month_no'];
 $year = (int) $sheet['year_no'];
 $month = (int) $sheet['month_no'];
 $daysInMonth = daysInMonthNum($month, $year);
-$company = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$company = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 $empLabel = trim(($sheet['employee_code'] ?? '') . ' — ' . ($sheet['employee_name'] ?? $sheet['full_name'] ?? ''));
 $items = $sheet['items'] ?? [];
 

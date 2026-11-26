@@ -21,7 +21,7 @@ $data = evReportLoadData();
 $types = $data['types'];
 $rows = $data['rows'];
 $m = $data['meta'];
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 
 $typeLabel = 'All Categories';
 if ($m['type'] !== '' && isset($types[$m['type']])) {

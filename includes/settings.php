@@ -50,6 +50,18 @@ function ensureCompanySettingsSchema($conn)
          ON DUPLICATE KEY UPDATE id = id"
     );
 
+    // Keep only Endoc company name (strip leftover tenant brands from DB)
+    $conn->query(
+        "UPDATE company_settings
+         SET company_name = 'Endoc Biotech Pvt Ltd'
+         WHERE id = 1
+           AND (
+             company_name IS NULL
+             OR TRIM(company_name) = ''
+             OR company_name NOT LIKE '%Endoc%'
+           )"
+    );
+
     // Migrate old single logo into both slots if empty
     $conn->query(
         "UPDATE company_settings

@@ -335,8 +335,8 @@ $selectedRole = isset($_POST['login_as']) && in_array($_POST['login_as'], $uiRol
         </form>
 
         <footer class="login-card-foot">
-            <span class="foot-label">Designed &amp; Developed by</span>
-            <a class="foot-brand" href="https://www.oceaninfotech.co.in/" target="_blank" rel="noopener">Ocean Infotech</a>
+            <span class="foot-label">Endoc Biotech Pvt Ltd</span>
+            <span class="foot-brand">HRMS</span>
         </footer>
     </div>
 

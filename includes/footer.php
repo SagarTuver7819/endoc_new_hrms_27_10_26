@@ -10,7 +10,7 @@ require_once __DIR__ . '/../config/app.php';
 <?php endif; ?>
     <footer class="page-footer">
         <div class="footer-left">2026 &copy; Endoc Biotech Pvt Ltd · HRMS</div>
-        <div class="footer-right">Designed &amp; Developed by <a href="https://www.oceaninfotech.co.in/" target="_blank" rel="noopener">Ocean Infotech</a></div>
+        <div class="footer-right">Endoc Biotech Pvt Ltd</div>
     </footer>
 
     <!-- Delete confirmation popup -->

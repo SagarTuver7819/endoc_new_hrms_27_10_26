@@ -500,7 +500,7 @@ $homeUrl = app_url('canteen/order.php');
             </form>
         <?php endif; ?>
     </div>
-    <div class="foot">Designed &amp; Developed by <a href="https://www.oceaninfotech.co.in/" target="_blank" rel="noopener" style="color:inherit">Ocean Infotech</a></div>
+    <div class="foot">Endoc Biotech Pvt Ltd · HRMS</div>
 </div>
 
 <?php if (!$done && $isOpen && $mode !== ''): ?>

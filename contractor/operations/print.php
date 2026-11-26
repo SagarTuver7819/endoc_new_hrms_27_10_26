@@ -73,7 +73,7 @@ if (isset($st)) {
 }
 $conn->close();
 
-$company = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$company = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 $sumQty = 0;
 $sumReworkQty = 0;
 $sumCalcAmt = 0;

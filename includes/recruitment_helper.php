@@ -1321,8 +1321,8 @@ if (!function_exists('ensureRecruitmentTables')) {
 
     /**
      * Next series no:
-     * Offer: ASIPL/HR/OFFER/26-27/0001
-     * Appointment: ASIPL/HR/APPOINT/26-27/0001
+     * Offer: ENDOC/HR/OFFER/26-27/0001
+     * Appointment: ENDOC/HR/APPOINT/26-27/0001
      */
     function recruitmentNextDocNo($docType, $conn = null)
     {
@@ -1359,9 +1359,9 @@ if (!function_exists('ensureRecruitmentTables')) {
         }
 
         if ($docType === 'offer') {
-            $no = 'ASIPL/HR/OFFER/' . $fyLabel . '/' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+            $no = 'ENDOC/HR/OFFER/' . $fyLabel . '/' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
         } else {
-            $no = 'ASIPL/HR/APPOINT/' . $fyLabel . '/' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+            $no = 'ENDOC/HR/APPOINT/' . $fyLabel . '/' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
         }
 
         if ($close) {
@@ -1371,7 +1371,7 @@ if (!function_exists('ensureRecruitmentTables')) {
     }
 
     /**
-     * Normalize appointment nos → ASIPL/HR/APPOINT/YY-YY/####
+     * Normalize appointment nos → ENDOC/HR/APPOINT/YY-YY/####
      */
     function recruitmentNormalizeAppointmentLetterNo($no, $refDate = null)
     {
@@ -1379,24 +1379,28 @@ if (!function_exists('ensureRecruitmentTables')) {
         if ($no === '') {
             return '';
         }
-        if (preg_match('#^ASIPL/HR/APPOINT/\d{2}-\d{2}/\d+$#', $no)) {
+        if (preg_match('#^ENDOC/HR/APPOINT/\d{2}-\d{2}/\d+$#', $no)) {
             return $no;
+        }
+        // Legacy ASIPL → ENDOC
+        if (preg_match('#^ASIPL/HR/APPOINT/(\d{2}-\d{2})/(\d+)$#', $no, $m)) {
+            return 'ENDOC/HR/APPOINT/' . $m[1] . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
         }
         if (preg_match('#^APT/(\d{4})/(\d+)$#', $no, $m)) {
             $calYear = (int) $m[1];
             $seq = (int) $m[2];
             $fyLabel = recruitmentFinancialYearLabel($refDate ?: ($calYear . '-09-01'));
-            return 'ASIPL/HR/APPOINT/' . $fyLabel . '/' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+            return 'ENDOC/HR/APPOINT/' . $fyLabel . '/' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
         }
-        if (preg_match('#^ASIPL/HR/APPOINT/(\d{4})/(\d+)$#', $no, $m)) {
+        if (preg_match('#^(?:ASIPL|ENDOC)/HR/APPOINT/(\d{4})/(\d+)$#', $no, $m)) {
             $fyLabel = recruitmentFinancialYearLabel($refDate ?: ($m[1] . '-09-01'));
-            return 'ASIPL/HR/APPOINT/' . $fyLabel . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
+            return 'ENDOC/HR/APPOINT/' . $fyLabel . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
         }
         return $no;
     }
 
     /**
-     * Convert legacy offer nos → ASIPL/HR/OFFER/YY-YY/####
+     * Convert legacy offer nos → ENDOC/HR/OFFER/YY-YY/####
      */
     function recruitmentNormalizeOfferLetterNo($no, $refDate = null)
     {
@@ -1404,21 +1408,23 @@ if (!function_exists('ensureRecruitmentTables')) {
         if ($no === '') {
             return '';
         }
-        // Already correct format
-        if (preg_match('#^ASIPL/HR/OFFER/\d{2}-\d{2}/\d+$#', $no)) {
+        if (preg_match('#^ENDOC/HR/OFFER/\d{2}-\d{2}/\d+$#', $no)) {
             return $no;
+        }
+        if (preg_match('#^ASIPL/HR/OFFER/(\d{2}-\d{2})/(\d+)$#', $no, $m)) {
+            return 'ENDOC/HR/OFFER/' . $m[1] . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
         }
         if (preg_match('#^OFR/(\d{4})/(\d+)$#', $no, $m)) {
             $calYear = (int) $m[1];
             $seq = (int) $m[2];
             $fyLabel = recruitmentFinancialYearLabel($refDate ?: ($calYear . '-09-01'));
-            return 'ASIPL/HR/OFFER/' . $fyLabel . '/' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+            return 'ENDOC/HR/OFFER/' . $fyLabel . '/' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
         }
         if (preg_match('#^ASIPL_Offer_(\d{2}-\d{2})[_/](\d+)$#', $no, $m)) {
-            return 'ASIPL/HR/OFFER/' . $m[1] . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
+            return 'ENDOC/HR/OFFER/' . $m[1] . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
         }
         if (preg_match('#^ASIPL/Offer/(\d{2}-\d{2})/(\d+)$#i', $no, $m)) {
-            return 'ASIPL/HR/OFFER/' . $m[1] . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
+            return 'ENDOC/HR/OFFER/' . $m[1] . '/' . str_pad((string) ((int) $m[2]), 4, '0', STR_PAD_LEFT);
         }
         return $no;
     }

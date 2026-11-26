@@ -28,7 +28,7 @@ if (!$data || ($data['lock']['approval_status'] ?? 'approved') !== 'approved') {
 }
 
 $monthLabel = date('F_Y', mktime(0, 0, 0, $month, 1, $year));
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 
 header('Content-Type: application/vnd.ms-excel; charset=utf-8');
 header('Content-Disposition: attachment; filename="NEFT_' . $type . '_' . $monthLabel . '.xls"');

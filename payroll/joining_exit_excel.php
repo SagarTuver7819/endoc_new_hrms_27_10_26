@@ -16,7 +16,7 @@ $month = (int) ($_GET['month'] ?? date('n'));
 $year = (int) ($_GET['year'] ?? date('Y'));
 $report = getMonthlyJoiningExitReport($month, $year, $deptId);
 $monthLabel = date('F_Y', mktime(0, 0, 0, $month, 1, $year));
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 
 header('Content-Type: application/vnd.ms-excel; charset=utf-8');
 header('Content-Disposition: attachment; filename="Joining_Exit_' . $monthLabel . '.xls"');

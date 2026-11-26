@@ -27,7 +27,7 @@ if ($year < 2000 || $year > 2100) {
 $data = getDepartmentMonthlyCostSummary($month, $year, $deptId);
 $departments = getActiveMasterRows('departments', 'sort_order ASC, department_name ASC');
 $monthLabel = date('F Y', mktime(0, 0, 0, $month, 1, $year));
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 $sum = $data['summary'];
 
 $pageTitle = 'Department Cost Summary';

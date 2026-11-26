@@ -14,7 +14,7 @@ $filterMonth = (int) ($_GET['filter_month'] ?? 0);
 $filterYear = (int) ($_GET['filter_year'] ?? 0);
 $mode = strtolower(trim((string) ($_GET['mode'] ?? 'days'))); // days | summary
 $months = contractorMonths();
-$company = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$company = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 
 $conn = getDBConnection();
 ensureContractorTables($conn);

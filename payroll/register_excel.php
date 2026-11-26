@@ -28,7 +28,7 @@ $groups = getSalaryRegisterData($type, $month, $year, $deptId, $employeeId);
 $isActual = ($type === 'jobwork_actual');
 $monthLabel = date('F_Y', mktime(0, 0, 0, $month, 1, $year));
 $monthDays = (int) date('t', strtotime(sprintf('%04d-%02d-01', $year, $month)));
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 
 $filename = 'Salary_Register_' . $type . '_' . $monthLabel . '.xls';
 header('Content-Type: application/vnd.ms-excel; charset=utf-8');

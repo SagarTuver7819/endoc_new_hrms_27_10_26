@@ -31,7 +31,7 @@ $data = getNeftSheetData($month, $year, $type, $deptId);
 $neftStatus = $data ? (string) ($data['lock']['approval_status'] ?? 'approved') : '';
 $neftFinal = $neftStatus === 'approved';
 $monthLabel = date('F Y', mktime(0, 0, 0, $month, 1, $year));
-$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Company';
+$companyName = function_exists('getCompanyName') ? getCompanyName() : 'Endoc Biotech Pvt Ltd';
 $types = salaryRegisterTypes();
 
 $pageTitle = 'NEFT Sheet';
