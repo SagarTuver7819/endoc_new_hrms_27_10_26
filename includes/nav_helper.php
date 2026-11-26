@@ -37,11 +37,6 @@ if (!function_exists('navRemember')) {
                 'label' => 'Back to Home',
                 'needs_dept' => false,
             ],
-            'contractor' => [
-                'path' => 'contractor/index.php',
-                'label' => 'Back to Contractor Hub',
-                'needs_dept' => false,
-            ],
             'masters' => [
                 'path' => 'masters/index.php',
                 'label' => 'Back to Masters',

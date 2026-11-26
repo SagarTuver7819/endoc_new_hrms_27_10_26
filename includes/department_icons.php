@@ -6,7 +6,6 @@
 function departmentIconCatalog()
 {
     return [
-        'ADMINISTRATION' => ['fa-landmark', '#008094'],
         'HUMAN RESOURCE MANAGEMENT' => ['fa-users', '#008094'],
         'ACCOUNTS AND FINANCE' => ['fa-file-invoice-dollar', '#2ECC71'],
         'SALES & MARKETING - DOMESTIC' => ['fa-handshake', '#1ABC9C'],

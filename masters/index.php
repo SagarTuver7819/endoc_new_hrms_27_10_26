@@ -11,7 +11,9 @@ require_once __DIR__ . '/../includes/permission_helper.php';
 
 requireAccess('masters', 'view');
 ensureMasterTables();
-$masters = getMastersConfig();
+$masters = array_filter(getMastersConfig(), static function ($m) {
+    return empty($m['hub_hide']);
+});
 
 require_once __DIR__ . '/../includes/company_content_helper.php';
 ensureCompanyContentTables();

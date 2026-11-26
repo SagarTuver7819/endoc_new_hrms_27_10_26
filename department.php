@@ -83,7 +83,6 @@ if ($department) {
             </div>
 
             <div class="module-grid module-grid-sm">
-                <!-- Primary manufacturing action -->
                 <a href="<?php echo app_url('employees/index.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card masters-entry-card">
                     <div class="module-icon" style="background-color: #008094;">
                         <i class="fa-solid fa-user-plus"></i>
@@ -93,7 +92,7 @@ if ($department) {
                 </a>
 
                 <a href="<?php echo app_url('employees/exit_list.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #EF4444;">
+                    <div class="module-icon" style="background-color: #8B3A36;">
                         <i class="fa-solid fa-user-xmark"></i>
                     </div>
                     <div class="module-label">Exit Employee List</div>
@@ -101,70 +100,63 @@ if ($department) {
                 </a>
 
                 <a href="<?php echo app_url('leave/index.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #2ECC71;">
+                    <div class="module-icon" style="background-color: #006070;">
                         <i class="fa-solid fa-file-invoice"></i>
                     </div>
                     <div class="module-label">Leave Request</div>
                     <div class="module-meta">Apply · Approve · Balance</div>
                 </a>
                 <a href="<?php echo app_url('employees/index.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #9B59B6;">
+                    <div class="module-icon" style="background-color: #00a3b8;">
                         <i class="fa-solid fa-chart-simple"></i>
                     </div>
                     <div class="module-label">Dept. Employees Report</div>
                     <div class="module-meta">List + Excel download</div>
                 </a>
                 <a href="<?php echo app_url('attendance/manual.php?department_id=' . (int) $department['id'] . '&show=1&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #0EA5E9;">
+                    <div class="module-icon" style="background-color: #008094;">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </div>
                     <div class="module-label">Manual Attendance</div>
                     <div class="module-meta">Department wise In / Out · Shift time</div>
                 </a>
                 <a href="<?php echo app_url('attendance/report.php?show=1&department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #0F766E;">
+                    <div class="module-icon" style="background-color: #0f766e;">
                         <i class="fa-solid fa-user-check"></i>
                     </div>
                     <div class="module-label">Attendance Report</div>
                     <div class="module-meta">Imported punches · Present / WO / Absent</div>
                 </a>
                 <a href="<?php echo app_url('payroll/diary.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #3498DB;">
+                    <div class="module-icon" style="background-color: #006070;">
                         <i class="fa-solid fa-calendar-check"></i>
                     </div>
                     <div class="module-label">Salary Structure</div>
                     <div class="module-meta">Set employee salary · PF / PT norms</div>
                 </a>
-                <a href="<?php echo app_url('payroll/jobwork.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #E67E22;">
-                        <i class="fa-solid fa-gears"></i>
-                    </div>
-                    <div class="module-label">Jobwork Entry</div>
-                    <div class="module-meta">Manual + Ops Rate List · Qty × Rate</div>
-                </a>
                 <a href="<?php echo app_url('payroll/generate.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #16A085;">
+                    <div class="module-icon" style="background-color: #008094;">
                         <i class="fa-solid fa-indian-rupee-sign"></i>
                     </div>
                     <div class="module-label">Generate Salary</div>
-                    <div class="module-meta">Diary / Jobwork + days split</div>
+                    <div class="module-meta">Attendance days · Salary diary</div>
                 </a>
                 <a href="<?php echo app_url('payroll/register.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #1e3a5f;">
+                    <div class="module-icon" style="background-color: #006070;">
                         <i class="fa-solid fa-table"></i>
                     </div>
                     <div class="module-label">Salary Register</div>
-                    <div class="module-meta">Salary · Jobwork Govt / Actual · Lock → NEFT</div>
+                    <div class="module-meta">Monthly register · Lock → NEFT</div>
                 </a>
                 <a href="<?php echo app_url('payroll/joining_exit.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #7C3AED;">
+                    <div class="module-icon" style="background-color: #8B3A36;">
                         <i class="fa-solid fa-right-left"></i>
                     </div>
                     <div class="module-label">Joining / Exit Report</div>
                     <div class="module-meta">Monthly · Prorated salary days</div>
                 </a>
                 <a href="<?php echo app_url('payroll/cost_summary.php?department_id=' . (int) $department['id'] . '&from=modules'); ?>" class="module-card">
-                    <div class="module-icon" style="background-color: #0F766E;">
+                    <div class="module-icon" style="background-color: #0f766e;">
                         <i class="fa-solid fa-chart-pie"></i>
                     </div>
                     <div class="module-label">Dept Cost Summary</div>

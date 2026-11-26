@@ -1,12 +1,9 @@
 <?php
+/**
+ * Contractor module removed from Endoc HRMS UI — redirect all contractor routes.
+ */
 require_once __DIR__ . '/../config/app.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/contractor_helper.php';
-require_once __DIR__ . '/../includes/permission_helper.php';
 requireLogin();
-requireAccess('contractor', 'view');
-
-$connBoot = getDBConnection();
-ensureContractorTables($connBoot);
-$connBoot->close();
+header('Location: ' . app_url('dashboard.php'));
+exit;

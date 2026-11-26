@@ -339,7 +339,7 @@ function getMastersConfig()
             'table'       => 'report_catalog',
             'folder'      => 'reports',
             'icon'        => 'fa-chart-simple',
-            'color'       => '#1ABC9C',
+            'color'       => '#008094',
             'name_field'  => 'report_name',
             'list_columns'=> [
                 ['key' => 'code', 'label' => 'Code'],
@@ -363,6 +363,7 @@ function getMastersConfig()
             'icon'        => 'fa-box',
             'color'       => '#006070',
             'name_field'  => 'product_name',
+            'hub_hide'    => true, // hide from Masters hub / sidebar (ERP catalog — not HRMS)
             'list_columns'=> [
                 ['key' => 'code', 'label' => 'Code'],
                 ['key' => 'product_name', 'label' => 'Product'],

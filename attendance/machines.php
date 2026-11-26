@@ -113,7 +113,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <span class="bio-stat-value bio-stat-value-sm">
                     <?php echo $stats['last_sync_at'] ? htmlspecialchars(formatDateTimeDisplay($stats['last_sync_at'])) : '—'; ?>
                 </span>
-                <span class="bio-stat-sub">from Ocean / devices</span>
+                <span class="bio-stat-sub">from linked devices</span>
             </div>
         </div>
 
@@ -189,7 +189,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     </div>
                                 <?php endif; ?>
                                 <?php if (!empty($m['ocean_machine_id'])): ?>
-                                    <div class="bio-meta"><i class="fa-solid fa-link"></i> Ocean #<?php echo (int) $m['ocean_machine_id']; ?></div>
+                                    <div class="bio-meta"><i class="fa-solid fa-link"></i> Ext #<?php echo (int) $m['ocean_machine_id']; ?></div>
                                 <?php endif; ?>
                             </td>
                             <td><?php echo (int) $m['sync_interval_minutes']; ?> min</td>

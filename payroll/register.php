@@ -27,6 +27,10 @@ $view = (($_GET['view'] ?? 'department') === 'employee') ? 'employee' : 'departm
 if ($month < 1 || $month > 12) {
     $month = (int) date('n');
 }
+// Contractor / Jobwork registers removed from UI — force normal salary
+if (in_array($type, ['jobwork_govt', 'jobwork_actual', 'contractor_main'], true)) {
+    $type = 'salary';
+}
 if (!isset(salaryRegisterTypes()[$type])) {
     $type = 'salary';
 }

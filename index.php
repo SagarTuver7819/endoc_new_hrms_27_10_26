@@ -166,7 +166,7 @@ $selectedRole = isset($_POST['login_as']) && in_array($_POST['login_as'], $uiRol
     <div class="login-bg-grid"></div>
     <div class="login-bg-sweep"></div>
 
-    <!-- Soft biotech watermarks (like Fezzan gears) -->
+    <!-- Soft biotech watermarks -->
     <svg class="bio-wm bio-wm-1" viewBox="0 0 120 120" aria-hidden="true">
         <circle cx="60" cy="28" r="10" fill="#008094"/><circle cx="28" cy="78" r="10" fill="#8B3A36"/>
         <circle cx="92" cy="78" r="10" fill="#006070"/><circle cx="60" cy="60" r="8" fill="#008094"/>

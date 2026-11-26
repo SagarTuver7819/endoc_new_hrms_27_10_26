@@ -376,26 +376,8 @@ $ob = empField($employee, 'overtime_benefits', 'No');
                 <div class="emp-subhead">Employment type &amp; codes</div>
                 <div class="form-grid form-grid-3">
                     <div class="form-group"><label>17. Pay Type</label>
-                        <?php if ($fromContractor): ?>
-                            <input type="hidden" name="pay_type" id="payType" value="Jobwork">
-                            <input type="text" class="form-control" value="Jobwork" readonly>
-                        <?php else: ?>
-                        <select name="pay_type" id="payType" class="form-control" required>
-                            <option value="Salary" <?php echo $currentPayType === 'Salary' ? 'selected' : ''; ?>>Normal Salary</option>
-                            <option value="Jobwork" <?php echo $currentPayType === 'Jobwork' ? 'selected' : ''; ?>>Contractor Jobwork</option>
-                            <option value="ContractorMain" <?php echo $currentPayType === 'ContractorMain' ? 'selected' : ''; ?>>Contractor Main</option>
-                        </select>
-                        <?php endif; ?>
-                    </div>
-                    <div class="form-group" id="mainContractorWrap" style="<?php echo $currentPayType === 'Jobwork' ? '' : 'display:none;'; ?>"><label>18. Contractor Main</label>
-                        <select name="main_contractor_id" id="mainContractorId" class="form-control">
-                            <option value="0">— None —</option>
-                            <?php foreach ($contractorMains as $cm): ?>
-                                <option value="<?php echo (int) $cm['id']; ?>" <?php echo $currentMainContractor === (int) $cm['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars(($cm['employee_code'] ?? '') . ' — ' . ($cm['employee_name'] ?? '')); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <input type="hidden" name="pay_type" id="payType" value="Salary">
+                        <input type="text" class="form-control" value="Normal Salary" readonly>
                     </div>
                     <div class="form-group"><label>19. Biometric User ID</label>
                         <input type="text" name="biometric_user_id" class="form-control" maxlength="50"

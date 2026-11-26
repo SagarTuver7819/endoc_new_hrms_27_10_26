@@ -975,7 +975,7 @@ function biometricSyncMachine($machineId, $fromDate = '', $toDate = '')
 function biometricProviderOptions()
 {
     return [
-        'old_crm' => 'Old CRM API',
+        'old_crm' => 'External Device API',
         'etimeoffice' => 'EASyBio / eTimeOffice',
         'custom' => 'Custom API',
     ];

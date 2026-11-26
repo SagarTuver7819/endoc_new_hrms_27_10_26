@@ -42,11 +42,6 @@ function getPermissionModules()
             'label' => 'Masters',
             'icon'  => 'fa-database',
         ],
-        'contractor' => [
-            'key'   => 'contractor',
-            'label' => 'Contractor',
-            'icon'  => 'fa-helmet-safety',
-        ],
         'recruitment' => [
             'key'   => 'recruitment',
             'label' => 'Recruitment',

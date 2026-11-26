@@ -148,11 +148,11 @@ require_once __DIR__ . '/../includes/header.php';
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Ocean Machine ID</label>
+                        <label>External Machine ID</label>
                         <input type="number" name="ocean_machine_id" class="form-control" min="0"
                                value="<?php echo htmlspecialchars((string) ($form['ocean_machine_id'] ?? '')); ?>"
-                               placeholder="Optional link to Ocean HRMS machine">
-                        <small>Used when triggering sync on Ocean (this company)</small>
+                               placeholder="Optional external machine reference">
+                        <small>Optional ID used when syncing punches from the linked device API</small>
                     </div>
                 </div>
             </div>

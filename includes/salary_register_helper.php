@@ -11,10 +11,7 @@ require_once __DIR__ . '/attendance_helper.php';
 function salaryRegisterTypes()
 {
     return [
-        'salary' => '1 · Normal Fixed Salary (Attendance)',
-        'jobwork_govt' => '2 · Jobwork Government (Attendance days)',
-        'jobwork_actual' => '2 · Jobwork Regular / Actual (Qty × Rate)',
-        'contractor_main' => '3 · Contractor Main (Team)',
+        'salary' => 'Normal Fixed Salary (Attendance)',
     ];
 }
 

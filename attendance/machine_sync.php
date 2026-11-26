@@ -82,7 +82,7 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="form-page-card">
         <div class="form-page-header">
             <h1>Sync Machine Attendance</h1>
-            <p>Pull company punches from linked machines via Ocean HRMS</p>
+            <p>Pull company punches from linked biometric machines</p>
         </div>
 
         <div class="bio-stat-grid bio-stat-grid-3">
@@ -159,7 +159,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="bio-sync-tips">
                     <strong>How sync works</strong>
                     <ol>
-                        <li>Triggers machine pull on Ocean HRMS (for linked Ocean Machine ID)</li>
+                        <li>Triggers punch pull from the linked device API</li>
                         <li>Imports company punches into Machine Wise logs</li>
                         <li>Matches employees by code / biometric ID</li>
                     </ol>

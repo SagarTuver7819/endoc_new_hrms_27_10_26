@@ -21,11 +21,6 @@ if (isset($_GET['msg'])) {
     <div class="page-toolbar flex-between">
         <a href="<?php echo app_url('contractor/index.php'); ?>" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to Contractor Hub</a>
         <div class="toolbar-actions">
-            <?php if (function_exists('isAdmin') && isAdmin()): ?>
-            <a href="<?php echo app_url('contractor/products/sync_reference.php'); ?>" class="btn-secondary">
-                <i class="fa-solid fa-cloud-arrow-down"></i> Sync from Reference
-            </a>
-            <?php endif; ?>
             <a href="<?php echo app_url('contractor/products/edit.php'); ?>" class="btn-primary"><i class="fa-solid fa-plus"></i> Add Product</a>
         </div>
     </div>

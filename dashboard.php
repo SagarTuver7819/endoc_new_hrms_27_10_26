@@ -1,6 +1,6 @@
 <?php
 /**
- * Dashboard — Workspace hub (quick access + departments)
+ * Dashboard — Workspace hub (quick access)
  */
 
 require_once __DIR__ . '/config/app.php';
@@ -29,22 +29,7 @@ require_once __DIR__ . '/includes/employee_documents_helper.php';
 ensureEmployeeRelatedDocumentsTables();
 require_once __DIR__ . '/includes/header.php';
 
-$conn = getDBConnection();
-$sql = "SELECT id, department_name, icon_class, icon_color, sort_order
-        FROM departments
-        WHERE status = 1
-        ORDER BY sort_order ASC, department_name ASC";
-$result = $conn->query($sql);
-$departments = [];
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $departments[] = $row;
-    }
-}
-$conn->close();
-
 $masterCount = count(getMastersConfig());
-$deptCount = count($departments);
 $userLabel = function_exists('getUserName') ? getUserName() : 'User';
 $hour = (int) date('G');
 if ($hour < 12) {
@@ -79,13 +64,9 @@ if (isAdmin() || isHR()) {
         <div class="dash-hero-copy">
             <p class="dash-eyebrow"><?php echo htmlspecialchars(strtoupper(getCompanyName())); ?> · WORKSPACE</p>
             <h1><?php echo htmlspecialchars($greet); ?>, <?php echo htmlspecialchars($userLabel); ?></h1>
-            <p class="dash-sub">Open HR tools, masters, contractor ops, or jump into a department.</p>
+            <p class="dash-sub">Open HR tools, masters, or employee lists.</p>
         </div>
         <div class="dash-hero-stats">
-            <div class="dash-stat">
-                <span class="dash-stat-num"><?php echo (int) $deptCount; ?></span>
-                <span class="dash-stat-lab">Departments</span>
-            </div>
             <div class="dash-stat">
                 <span class="dash-stat-num"><?php echo (int) $masterCount; ?></span>
                 <span class="dash-stat-lab">Masters</span>
@@ -115,14 +96,6 @@ if (isAdmin() || isHR()) {
                 </div>
                 <i class="fa-solid fa-arrow-right dash-hub-go"></i>
             </a>
-            <a href="<?php echo htmlspecialchars(app_url('contractor/index.php')); ?>" class="dash-hub-card is-contractor" title="Contractor Manage">
-                <div class="dash-hub-icon" style="background:#8E44AD;"><i class="fa-solid fa-helmet-safety"></i></div>
-                <div class="dash-hub-body">
-                    <strong>Contractor Manage</strong>
-                    <span>Employees · Products · Rate List</span>
-                </div>
-                <i class="fa-solid fa-arrow-right dash-hub-go"></i>
-            </a>
             <a href="<?php echo htmlspecialchars(app_url('employees/index.php')); ?>" class="dash-hub-card is-emp" title="All Employees Report">
                 <div class="dash-hub-icon" style="background:#059669;"><i class="fa-solid fa-users"></i></div>
                 <div class="dash-hub-body">
@@ -148,31 +121,6 @@ if (isAdmin() || isHR()) {
                 </div>
                 <i class="fa-solid fa-arrow-right dash-hub-go"></i>
             </a>
-            <?php endif; ?>
-        </div>
-    </section>
-
-    <section class="module-section dash-section" id="department-workspace">
-        <div class="section-heading">
-            <i class="fa-solid fa-building"></i>
-            <span>DEPARTMENT WORKSPACE</span>
-            <em class="dash-section-count"><?php echo (int) $deptCount; ?></em>
-        </div>
-
-        <div class="module-grid dash-dept-grid">
-            <?php if ($deptCount === 0): ?>
-                <p class="empty-msg">No departments found. Please run DB Sync / seed masters.</p>
-            <?php else: ?>
-                <?php foreach ($departments as $dept): ?>
-                    <a href="<?php echo htmlspecialchars(app_url('department.php?id=' . (int) $dept['id'])); ?>"
-                       class="module-card dash-dept-card"
-                       title="<?php echo htmlspecialchars($dept['department_name']); ?>">
-                        <div class="module-icon" style="background-color: <?php echo htmlspecialchars($dept['icon_color']); ?>;">
-                            <i class="fa-solid <?php echo htmlspecialchars($dept['icon_class']); ?>"></i>
-                        </div>
-                        <div class="module-label"><?php echo htmlspecialchars($dept['department_name']); ?></div>
-                    </a>
-                <?php endforeach; ?>
             <?php endif; ?>
         </div>
     </section>

@@ -424,7 +424,7 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 
     <div class="hr-emp-quickbar">
-        <a class="btn-primary" href="<?php echo app_url('dashboard.php#department-workspace'); ?>"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+        <a class="btn-primary" href="<?php echo app_url('employees/index.php'); ?>"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
         <a class="btn-ghost" href="<?php echo app_url('attendance/manual.php'); ?>"><i class="fa-solid fa-pen-to-square"></i> Manual Attendance</a>
         <a class="btn-ghost" href="<?php echo app_url('leave/index.php'); ?>"><i class="fa-solid fa-scale-balanced"></i> Leave Desk</a>
         <a class="btn-ghost" href="<?php echo app_url('hr/kpi.php'); ?>"><i class="fa-solid fa-clipboard-list"></i> KPI Reports</a>
@@ -585,7 +585,7 @@ require_once __DIR__ . '/../includes/header.php';
         <section class="form-page-card emp-dash-panel is-policies">
             <div class="emp-dash-panel-head">
                 <div>
-                    <h3><i class="fa-solid fa-scroll" style="color:#7C3AED;"></i> Recent Policies</h3>
+                    <h3><i class="fa-solid fa-scroll" style="color:#008094;"></i> Recent Policies</h3>
                     <p><?php echo (int) $recentPoliciesTotal; ?> total</p>
                 </div>
                 <a class="btn-ghost emp-dash-more" href="<?php echo app_url('policies/index.php'); ?>">View all</a>
@@ -611,7 +611,7 @@ require_once __DIR__ . '/../includes/header.php';
         <section class="form-page-card emp-dash-panel is-circulars">
             <div class="emp-dash-panel-head">
                 <div>
-                    <h3><i class="fa-solid fa-file-circle-plus" style="color:#1D4ED8;"></i> Recent Circulars</h3>
+                    <h3><i class="fa-solid fa-file-circle-plus" style="color:#006070;"></i> Recent Circulars</h3>
                     <p><?php echo (int) $recentCircularsTotal; ?> total</p>
                 </div>
                 <a class="btn-ghost emp-dash-more" href="<?php echo app_url('circulars/index.php'); ?>">View all</a>
@@ -637,7 +637,7 @@ require_once __DIR__ . '/../includes/header.php';
         <section class="form-page-card emp-dash-panel is-anniv">
             <div class="emp-dash-panel-head">
                 <div>
-                    <h3><i class="fa-solid fa-award" style="color:#B45309;"></i> Work Anniversaries</h3>
+                    <h3><i class="fa-solid fa-award" style="color:#8B3A36;"></i> Work Anniversaries</h3>
                     <p>Join date · next 30 days · <?php echo (int) $workAnniversariesTotal; ?></p>
                 </div>
                 <?php if ($workAnniversariesTotal > $panelLimit && $expand !== 'anniv'): ?>
@@ -678,7 +678,7 @@ require_once __DIR__ . '/../includes/header.php';
         <section class="form-page-card emp-dash-panel is-bday">
             <div class="emp-dash-panel-head">
                 <div>
-                    <h3><i class="fa-solid fa-cake-candles" style="color:#DB2777;"></i> Upcoming Birthdays</h3>
+                    <h3><i class="fa-solid fa-cake-candles" style="color:#00a3b8;"></i> Upcoming Birthdays</h3>
                     <p>Next 45 days · <?php echo (int) $upcomingBirthdaysTotal; ?></p>
                 </div>
                 <?php if ($upcomingBirthdaysTotal > $panelLimit && $expand !== 'bday'): ?>
@@ -721,7 +721,7 @@ require_once __DIR__ . '/../includes/header.php';
         <section class="form-page-card emp-dash-panel is-leave-q">
             <div class="emp-dash-panel-head">
                 <div>
-                    <h3><i class="fa-solid fa-inbox" style="color:#d97706;"></i> Leave Queue</h3>
+                    <h3><i class="fa-solid fa-inbox" style="color:#8B3A36;"></i> Leave Queue</h3>
                     <p><?php echo count($pendingLeaves); ?> pending</p>
                 </div>
                 <a class="btn-ghost emp-dash-more" href="<?php echo app_url('leave/index.php?status=Pending'); ?>">View all</a>
@@ -789,7 +789,7 @@ require_once __DIR__ . '/../includes/header.php';
         <section class="form-page-card emp-dash-panel is-holiday">
             <div class="emp-dash-panel-head">
                 <div>
-                    <h3><i class="fa-solid fa-umbrella-beach" style="color:#0d9488;"></i> Upcoming Holidays</h3>
+                    <h3><i class="fa-solid fa-umbrella-beach" style="color:#006070;"></i> Upcoming Holidays</h3>
                     <p>Next 30 days</p>
                 </div>
                 <a class="btn-ghost emp-dash-more" href="<?php echo app_url('masters/holidays/index.php'); ?>">Manage</a>
